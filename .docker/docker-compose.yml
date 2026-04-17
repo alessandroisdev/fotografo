@@ -1,0 +1,83 @@
+name: fotograto
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: php/Dockerfile
+    container_name: fotografo_app
+    restart: always
+    working_dir: /var/www
+    volumes:
+      - ../www:/var/www
+      - ./php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    depends_on:
+      - db
+      - redis
+    networks:
+      - fotografo_net
+
+  nginx:
+    image: nginx:alpine
+    container_name: fotografo_nginx
+    restart: always
+    ports:
+      - "8000:80"
+    volumes:
+      - ../www:/var/www
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - fotografo_net
+
+  db:
+    image: mariadb:10.11
+    container_name: fotografo_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: fotografo
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_USER: fotografo_user
+      MYSQL_PASSWORD: fotografo_pass
+    ports:
+      - "33066:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - fotografo_net
+
+  redis:
+    image: redis:alpine
+    container_name: fotografo_redis
+    restart: always
+    ports:
+      - "63799:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - fotografo_net
+
+  worker:
+    build:
+      context: .
+      dockerfile: php/Dockerfile
+    container_name: fotografo_worker
+    restart: always
+    working_dir: /var/www
+    command: php artisan queue:work redis --sleep=3 --tries=3 --timeout=90
+    volumes:
+      - ../www:/var/www
+    depends_on:
+      - db
+      - redis
+    networks:
+      - fotografo_net
+
+networks:
+  fotografo_net:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
