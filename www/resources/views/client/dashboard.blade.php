@@ -213,7 +213,7 @@
                         <label class="form-label text-white-50 mb-3">Selecione uma Formação</label>
                         @foreach(\App\Enums\PaymentMethodEnum::cases() as $methodEnum)
                             <div class="form-check mb-2 bg-dark p-2 rounded border border-secondary" style="--bs-border-opacity: .3;">
-                                <input class="form-check-input ms-1 gateway-selector" onclick="toggleFormLogic(this, 'retry_{{ $order->id }}')" type="radio" name="payment_method" id="method_retry_{{ $methodEnum->value }}_{{ $order->id }}" value="{{ $methodEnum->value }}" required>
+                                <input class="form-check-input ms-1 gateway-selector" onchange="toggleFormLogic(this, 'retry_{{ $order->id }}')" type="radio" name="payment_method" id="method_retry_{{ $methodEnum->value }}_{{ $order->id }}" value="{{ $methodEnum->value }}" data-missing="{{ isset($missingReg) && $missingReg ? 'true' : 'false' }}" required>
                                 <label class="form-check-label text-white ms-2" for="method_retry_{{ $methodEnum->value }}_{{ $order->id }}">
                                     {{ $methodEnum->label() }}
                                 </label>
@@ -229,7 +229,7 @@
                     @endphp
 
                     @if($missingReg)
-                    <div id="registration_form_retry_{{ $order->id }}" class="registration-form-container d-none mb-4 text-start bg-secondary bg-opacity-10 p-3 rounded border border-warning" style="--bs-border-opacity: .5;">
+                    <div id="registration_form_retry_{{ $order->id }}" class="registration-form-container mb-4 text-start bg-secondary bg-opacity-10 p-3 rounded border border-warning" style="--bs-border-opacity: .5;">
                          <h6 class="text-warning mb-3 fw-bold"><i class="bi bi-person-lines-fill me-2"></i>Completar Cadastro de Cobrança (Obrigatório)</h6>
                          <p class="small text-white-50 form-text">É necessário preencher os dados de faturamento pendentes na sua conta.</p>
                          
@@ -271,14 +271,14 @@
                              <div class="mb-4">
                                  @foreach($userCards as $card)
                                  <div class="form-check mb-2">
-                                     <input class="form-check-input vault-selector" type="radio" onclick="toggleVault(this, 'retry_{{ $order->id }}')" name="saved_card_id" id="card_saved_retry_{{ $card->id }}_{{ $order->id }}" value="{{ $card->id }}">
+                                     <input class="form-check-input vault-selector" type="radio" onchange="toggleVault(this, 'retry_{{ $order->id }}')" name="saved_card_id" id="card_saved_retry_{{ $card->id }}_{{ $order->id }}" value="{{ $card->id }}">
                                      <label class="form-check-label text-white" for="card_saved_retry_{{ $card->id }}_{{ $order->id }}">
                                          Utilizar {{ strtoupper($card->card_brand ?: 'CARTÃO') }} em cofre final {{ $card->last_four }}
                                      </label>
                                  </div>
                                  @endforeach
                                  <div class="form-check mt-3 pt-2 border-top border-secondary">
-                                     <input class="form-check-input vault-selector" type="radio" onclick="toggleVault(this, 'retry_{{ $order->id }}')" name="saved_card_id" id="card_new_retry_{{ $order->id }}" value="new" checked>
+                                     <input class="form-check-input vault-selector" type="radio" onchange="toggleVault(this, 'retry_{{ $order->id }}')" name="saved_card_id" id="card_new_retry_{{ $order->id }}" value="new" checked>
                                      <label class="form-check-label text-white" for="card_new_retry_{{ $order->id }}">Usar Cartão Inédito</label>
                                  </div>
                              </div>
@@ -322,15 +322,17 @@
 @push('scripts')
 <script>
     function toggleFormLogic(radio, packageId) {
-        document.querySelectorAll(`#registration_form_${packageId}, #card_form_${packageId}`).forEach(el => {
+        // Esconde os forms baseados no radio
+        document.querySelectorAll(`#card_form_${packageId}`).forEach(el => {
             if(el) {
                 el.classList.add('d-none');
                 el.querySelectorAll('input, select').forEach(input => input.required = false);
             }
         });
         
-        let missingReg = {{ $missingReg ? 'true' : 'false' }};
+        let missingReg = radio.hasAttribute('data-missing') ? (radio.getAttribute('data-missing') === 'true') : false;
         
+        // Garante que o form de registro sempre esteje exigido se missingReg for true, independente de sumir
         if (missingReg) {
             const regContainer = document.getElementById('registration_form_' + packageId);
             if (regContainer) {

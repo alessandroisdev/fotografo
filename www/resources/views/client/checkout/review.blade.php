@@ -53,7 +53,7 @@
                             <label class="form-label fw-bold text-white mb-2 d-block">Como deseja pagar?</label>
                             @foreach(\App\Enums\PaymentMethodEnum::cases() as $methodEnum)
                                 <div class="form-check mb-2 bg-dark p-2 rounded border border-secondary" style="--bs-border-opacity: .3;">
-                                    <input class="form-check-input ms-1 gateway-selector" onchange="toggleFormLogic(this, '{{ $package->id }}')" type="radio" name="payment_method" id="method_{{ $methodEnum->value }}_{{ $package->id }}" value="{{ $methodEnum->value }}" required>
+                                    <input class="form-check-input ms-1 gateway-selector" onclick="toggleFormLogic(this, '{{ $package->id }}')" type="radio" name="payment_method" id="method_{{ $methodEnum->value }}_{{ $package->id }}" value="{{ $methodEnum->value }}" data-missing="{{ isset($missingReg) && $missingReg ? 'true' : 'false' }}" required>
                                     <label class="form-check-label text-white ms-2" for="method_{{ $methodEnum->value }}_{{ $package->id }}">
                                         {{ $methodEnum->label() }}
                                     </label>
@@ -63,7 +63,7 @@
 
                         <!-- Formulário Secundário: Cadastro Pendente (Perfil/Endereço) -->
                         @if($missingReg)
-                        <div id="registration_form_{{ $package->id }}" class="registration-form-container d-none mb-4 text-start bg-dark bg-opacity-50 p-3 rounded border border-warning" style="--bs-border-opacity: .5;">
+                        <div id="registration_form_{{ $package->id }}" class="registration-form-container mb-4 text-start bg-dark bg-opacity-50 p-3 rounded border border-warning" style="--bs-border-opacity: .5;">
                              <h6 class="text-warning mb-3 fw-bold"><i class="bi bi-person-lines-fill me-2"></i>Completar Cadastro de Cobrança (Obrigatório)</h6>
                              <p class="small text-white-50 form-text">Precisamos de seus dados de faturamento (Endereço e Contato).</p>
                              
@@ -193,13 +193,13 @@
 @push('scripts')
 <script>
     function toggleFormLogic(radio, packageId) {
-        // Esconde todos os forms e limpa validations
-        document.querySelectorAll('.card-form-container, .registration-form-container').forEach(el => {
+        // Esconde todos os forms e limpa validations (mas poupa registration se obrigatorio)
+        document.querySelectorAll(`#card_form_${packageId}`).forEach(el => {
             el.classList.add('d-none');
             el.querySelectorAll('input').forEach(input => input.required = false);
         });
         
-        let missingReg = {{ $missingReg ? 'true' : 'false' }};
+        let missingReg = radio.hasAttribute('data-missing') ? (radio.getAttribute('data-missing') === 'true') : false;
         
         // Se houver dados faltantes (CPF/Phone), exibe a cortina do Cadastro + LGPD pra QUALQUER método
         if (missingReg) {
