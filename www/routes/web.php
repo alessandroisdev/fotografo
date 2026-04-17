@@ -24,3 +24,13 @@ Route::prefix('admin')->name('admin.')->group(function () {
     // Photo Upload Endpoint via Dropzone
     Route::post('galleries/{gallery}/photos', [PhotoController::class, 'store'])->name('galleries.photos.store');
 });
+
+// Client Area
+use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
+use App\Http\Controllers\Client\GalleryController as ClientGalleryController;
+
+Route::prefix('client')->name('client.')->group(function () {
+    Route::get('/', function() { return redirect()->route('client.dashboard'); });
+    Route::get('/dashboard', [ClientDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/gallery/{uuid}', [ClientGalleryController::class, 'show'])->name('galleries.show');
+});
