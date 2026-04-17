@@ -72,3 +72,6 @@ Route::middleware(['auth'])->prefix('client')->name('client.')->group(function (
     Route::post('/gallery/{uuid}/checkout', [ClientCheckoutController::class, 'review'])->name('checkout.review');
     Route::post('/gallery/{uuid}/order', [ClientCheckoutController::class, 'process'])->name('checkout.process');
 });
+
+// External Webhooks
+Route::post('/webhooks/asaas', [\App\Http\Controllers\Webhooks\PaymentWebhookController::class, 'asaas']);

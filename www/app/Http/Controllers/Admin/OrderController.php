@@ -34,9 +34,22 @@ class OrderController extends Controller
                              $btn .= '<form action="'.route('admin.orders.update', $row->id).'" method="POST" class="d-inline">
                                       '.csrf_field().method_field('PATCH').'
                                       <input type="hidden" name="status" value="paid">
-                                      <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-circle"></i> Aprovar</button>
+                                      <button type="submit" class="btn btn-success btn-sm me-1" title="Aprovar Pagamento"><i class="bi bi-check-circle"></i> Aprovar</button>
+                                      </form>';
+                         } else if ($row->status == 'paid') {
+                             $btn .= '<a href="/client/gallery/'.$row->gallery->uuid.'" class="btn btn-primary btn-sm me-1" target="_blank" title="Acessar Galeria do Cliente"><i class="bi bi-eye"></i></a>';
+                             $btn .= '<form action="'.route('admin.orders.update', $row->id).'" method="POST" class="d-inline">
+                                      '.csrf_field().method_field('PATCH').'
+                                      <input type="hidden" name="status" value="pending">
+                                      <button type="submit" class="btn btn-warning btn-sm me-1" title="Estornar para Pendente"><i class="bi bi-arrow-counterclockwise"></i></button>
                                       </form>';
                          }
+                         
+                         $btn .= '<form action="'.route('admin.orders.destroy', $row->id).'" method="POST" class="d-inline" onsubmit="return confirm(\'Deseja excluir esta fatura?\');">
+                                  '.csrf_field().method_field('DELETE').'
+                                  <button type="submit" class="btn btn-danger btn-sm" title="Excluir"><i class="bi bi-trash"></i></button>
+                                  </form>';
+
                          return $btn;
                     })
                     ->rawColumns(['status', 'action'])
@@ -57,8 +70,12 @@ class OrderController extends Controller
             'paid_at' => $validated['status'] == 'paid' ? now() : null
         ]);
         
-        // Aqui também poderíamos disparar um Job (e.g. LiberarArquivosJob) para mover eles do S3 privado para um link exposto.
-
         return redirect()->route('admin.orders.index')->with('success', 'Status da Fatura modificado!');
+    }
+
+    public function destroy(Order $order)
+    {
+        $order->delete();
+        return redirect()->route('admin.orders.index')->with('success', 'Fatura excluída permanentemente.');
     }
 }
