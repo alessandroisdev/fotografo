@@ -27,6 +27,12 @@ class MercadoPagoGateway implements PaymentGatewayInterface
             // O Order salva o "gateway" como o payment_method_id selecionado na nossa base.
             if ($order->gateway === \App\Enums\PaymentMethodEnum::PIX->value) {
                 // Monta Transparente API
+                $document = preg_replace('/[^0-9]/', '', $order->user->document ?? '');
+                // Mercado Pago Sandbox/Production exige CPF Válido. Se for ambiente de testes, injeta CPF Fake padrão MP.
+                if (empty($document) || (strlen($document) !== 11 && strlen($document) !== 14)) {
+                    $document = \Illuminate\Support\Facades\App::environment('local') ? '19119119100' : '00000000000';
+                }
+
                 $payload = [
                     'transaction_amount' => round($order->total_amount, 2),
                     'description' => 'Fotografias Finais - ' . $order->gallery->name,
@@ -35,8 +41,8 @@ class MercadoPagoGateway implements PaymentGatewayInterface
                         'email' => $order->user->email,
                         'first_name' => explode(' ', $order->user->name)[0],
                         'identification' => [
-                            'type' => 'CPF',
-                            'number' => preg_replace('/[^0-9]/', '', $order->user->document ?? '00000000000') // Fallback caso não há Doc
+                            'type' => strlen($document) === 14 ? 'CNPJ' : 'CPF',
+                            'number' => $document
                         ]
                     ],
                     'external_reference' => $order->uuid
