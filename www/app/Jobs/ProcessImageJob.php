@@ -35,28 +35,30 @@ class ProcessImageJob implements ShouldQueue
 
         // --- 1. Miniatura Admin ---
         $thumbImage = clone $image;
-        $thumbImage->scale(width: 800);
-        // Em V3/V4 podemos usar encode() explícito se toWebp() estiver ocultado!
-        $thumbEncoded = $thumbImage->encodeUsingExtension('webp')->toString();
+        // Na UI Administrativa, as colunas rendem no máximo ~300px de largura e 150px de altura. ScaleDown salva processamento preservando memória na escala
+        $thumbImage->scaleDown(width: 350);
+        // Codificação WEBP ultra-leve mantendo 80% de qualidade visual
+        $thumbEncoded = $thumbImage->toWebp(80)->toString();
         
         $thumbPath = 'photos/' . $this->photo->gallery_id . '/' . $this->photo->uuid . '_thumb.webp';
         Storage::disk('public')->put($thumbPath, $thumbEncoded);
         
         // --- 2. Miniatura Público (Com Marca d'água) ---
         $watermarkImage = clone $image;
-        $watermarkImage->scale(width: 1200);
+        // Escala perfeita para Lightbox / Grade Mansory de Client Dashboard sem exceder Full HD
+        $watermarkImage->scaleDown(width: 1200);
 
         try {
             $logoPath = public_path('images/watermark-default.png');
             if (file_exists($logoPath)) {
                 // v4 usa insert() ao invés de place()
-                $watermarkImage->insert($logoPath, 'center', 50, 50); // 50% opacity talvez não seja suportado como arg extra no insert, deixo solto no 50 50 X Y
+                $watermarkImage->insert($logoPath, 'center', 50, 50);
             }
         } catch (\Exception $e) {
             // Ignora
         }
 
-        $watermarkEncoded = $watermarkImage->encodeUsingExtension('webp')->toString();
+        $watermarkEncoded = $watermarkImage->toWebp(85)->toString();
         $watermarkPath = 'photos/' . $this->photo->gallery_id . '/' . $this->photo->uuid . '_watermark.webp';
         Storage::disk('public')->put($watermarkPath, $watermarkEncoded);
 

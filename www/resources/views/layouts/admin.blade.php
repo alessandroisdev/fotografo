@@ -15,6 +15,8 @@
     <!-- DataTables CSS for Premium Look -->
     <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
 
+    @include('partials.theme')
+
     @vite(['resources/css/app.css', 'resources/js/app.ts'])
 </head>
 <body class="bg-light admin-body">
@@ -45,7 +47,7 @@
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav ms-auto mt-2 mt-lg-0">
                         <li class="nav-item">
-                            <a class="nav-link fw-bold text-primary" href="/"><i class="bi bi-box-arrow-up-right"></i> Ver Site</a>
+                            <a class="nav-link fw-bold text-primary" href="{{ url('/') }}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Ver Site</a>
                         </li>
                     </ul>
                 </div>

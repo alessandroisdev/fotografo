@@ -51,8 +51,8 @@
                 <p class="opacity-75"><i class="bi bi-calendar me-2"></i> {{ $gallery->created_at->format('d/m/Y') }}</p>
                 <hr class="border-white opacity-25">
                 <div class="d-grid gap-2">
-                    <button class="btn btn-light fw-bold"><i class="bi bi-eye"></i> Visualizar Link Público</button>
-                    <button class="btn btn-outline-light fw-bold"><i class="bi bi-gear"></i> Editar Permissões</button>
+                    <a href="{{ route('client.galleries.show', $gallery->uuid) }}" target="_blank" class="btn btn-light fw-bold"><i class="bi bi-eye"></i> Visualizar Link Público</a>
+                    <a href="{{ route('admin.galleries.edit', $gallery->id) }}" class="btn btn-outline-light fw-bold"><i class="bi bi-gear"></i> Editar Permissões</a>
                 </div>
             </div>
         </div>

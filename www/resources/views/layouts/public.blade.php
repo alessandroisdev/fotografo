@@ -16,22 +16,8 @@
     
     @vite(['resources/css/app.css', 'resources/js/app.ts'])
 
-    <!-- Dinâmico Settings Injetados -->
-    <style>
-        :root, [data-bs-theme="dark"] {
-            /* Definindo Cores Principais do Site e sobrepondo o Bootstrap */
-            --primary-color: {{ \App\Models\Setting::where('key','primary_color')->value('value') ?? '#0a58ca' }}; /* Azul Moderno Default */
-            --secondary-color: {{ \App\Models\Setting::where('key','secondary_color')->value('value') ?? '#ffc107' }}; /* Amarelo Ouro Default */
-            
-            --bs-primary: var(--primary-color);
-            --bs-primary-rgb: 10, 88, 202;
-            
-            --bs-secondary: var(--secondary-color);
-            --bs-secondary-rgb: 255, 193, 7;
-
-            --bg-color: #0f172a;
-        }
-    </style>
+    <!-- Custom Styling & Utilities via Global Thematic Scope -->
+    @include('partials.theme')
 </head>
 <body class="public-body">
     <!-- Navbar Bootstrap Padrão Elevado -->
@@ -39,7 +25,7 @@
         <div class="container">
             <a class="navbar-brand logo-brand" href="/">
                 <i class="bi bi-camera me-2 text-secondary"></i>
-                {{ \App\Models\Setting::where('key','site_name')->value('value') ?? 'Fotógrafo.io' }}
+                {{ config('settings.site_title', 'Fotógrafo.io') }}
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
