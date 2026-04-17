@@ -23,6 +23,12 @@ class MercadoPagoGateway implements PaymentGatewayInterface
     public function generateCharge(Order $order): PaymentResponse
     {
         try {
+            $dashboardUrl = route('client.dashboard');
+            // Mercado Pago (auto_return) regex rejects 'localhost', we must spoof loopback IP.
+            if (\Illuminate\Support\Facades\App::environment('local')) {
+                $dashboardUrl = str_replace('localhost', '127.0.0.1', $dashboardUrl);
+            }
+
             $response = \Illuminate\Support\Facades\Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->accessToken,
                 'Content-Type' => 'application/json'
@@ -42,9 +48,9 @@ class MercadoPagoGateway implements PaymentGatewayInterface
                 ],
                 'external_reference' => $order->uuid,
                 'back_urls' => [
-                    'success' => route('client.dashboard'),
-                    'pending' => route('client.dashboard'),
-                    'failure' => route('client.dashboard')
+                    'success' => $dashboardUrl,
+                    'pending' => $dashboardUrl,
+                    'failure' => $dashboardUrl
                 ],
                 'auto_return' => 'approved' // Roteamento limpo do hub MP pra cá
             ]);
