@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 
 // Public
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PublicPortfolioController;
 
 // Auth
@@ -26,25 +27,7 @@ use App\Http\Controllers\Client\OrderController as ClientOrderController;
 // Webhooks
 use App\Http\Controllers\Webhooks\PaymentWebhookController;
 
-use App\Models\Gallery;
-
-Route::get('/', function () {
-    $galleries = Gallery::with(['photos' => function($query) {
-                        $query->where('status', 'ready')
-                              ->where('is_public', true)
-                              ->inRandomOrder()
-                              ->take(1);
-                    }])
-                    ->withCount(['photos' => function ($q) {
-                        $q->where('is_public', true);
-                    }])
-                    ->where('is_public', true)
-                    ->latest()
-                    ->take(6)
-                    ->get();
-                    
-    return view('home', compact('galleries'));
-});
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
 // Portfólio Público Dinâmico
 Route::get('/portfolio/{gallery:uuid}', [PublicPortfolioController::class, 'show'])->name('portfolio.show');
