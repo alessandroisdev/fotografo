@@ -144,6 +144,15 @@ class CheckoutController extends Controller
         $gateway = \App\Services\Payments\PaymentGatewayFactory::resolve($paymentMethodEnum);
         $paymentResponse = $gateway->generateCharge($order, empty($paymentData) ? null : $paymentData);
 
+        \App\Models\OrderAttempt::create([
+            'order_id' => $order->id,
+            'gateway' => env('PAYMENT_GATEWAY', 'mercadopago'),
+            'payment_method' => $paymentMethodEnum->value,
+            'status' => $paymentResponse->success ? 'success' : 'failed',
+            'message' => $paymentResponse->message ?? 'Interação com a API despachada.',
+            'response_payload' => $paymentResponse->payload ?? [],
+        ]);
+
         if (!$paymentResponse->success) {
             // Em caso de falhas de comunicação de API
             return redirect()->route('client.dashboard')->with('error', $paymentResponse->message);
@@ -259,6 +268,15 @@ class CheckoutController extends Controller
 
         $gateway = \App\Services\Payments\PaymentGatewayFactory::resolve($paymentMethodEnum);
         $paymentResponse = $gateway->generateCharge($order, empty($paymentData) ? null : $paymentData);
+
+        \App\Models\OrderAttempt::create([
+            'order_id' => $order->id,
+            'gateway' => env('PAYMENT_GATEWAY', 'mercadopago'),
+            'payment_method' => $paymentMethodEnum->value,
+            'status' => $paymentResponse->success ? 'success' : 'failed',
+            'message' => $paymentResponse->message ?? 'Retentativa com a API despachada.',
+            'response_payload' => $paymentResponse->payload ?? [],
+        ]);
 
         if (!$paymentResponse->success) {
             return redirect()->route('client.dashboard')->with('error', $paymentResponse->message);

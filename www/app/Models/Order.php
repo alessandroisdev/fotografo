@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Traits\HasUuid;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class Order extends Model
+class Order extends Model implements Auditable
 {
-    use HasUuid;
+    use HasUuid, \OwenIt\Auditing\Auditable;
     
     protected $guarded = [];
 
@@ -30,5 +31,9 @@ class Order extends Model
 
     public function items() {
         return $this->hasMany(OrderItem::class);
+    }
+    
+    public function attempts() {
+        return $this->hasMany(OrderAttempt::class)->orderBy('id', 'desc');
     }
 }

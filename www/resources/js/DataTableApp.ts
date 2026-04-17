@@ -42,6 +42,7 @@ export class DataTableApp {
             },
             responsive: true,
             pageLength: 25,
+            order: [[0, 'desc']]
         });
     }
 

@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Traits\HasUuid;
+use OwenIt\Auditing\Contracts\Auditable;
 
-class Package extends Model
+class Package extends Model implements Auditable
 {
-    use HasUuid;
+    use HasUuid, \OwenIt\Auditing\Auditable;
     
     protected $guarded = [];
 }

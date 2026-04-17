@@ -10,6 +10,7 @@
         "intervention/image": "^4.0",
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0",
+        "owen-it/laravel-auditing": "^14.0",
         "yajra/laravel-datatables-oracle": "^13.0"
     },
     "require-dev": {

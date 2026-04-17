@@ -81,4 +81,77 @@
         </div>
     </div>
 </div>
+
+<!-- AUDITORIA DE TENTATIVAS DE PAGAMENTOS E GATEWAYS -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+                    <h5 class="fw-bold mb-0 text-secondary"><i class="bi bi-diagram-3 me-2"></i> Auditoria de Transações & Tentativas</h5>
+                </div>
+                
+                @if($order->attempts->count() > 0)
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle border">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>Gateway</th>
+                                <th>Método</th>
+                                <th>Status Resultante</th>
+                                <th>Mensagem Diagnóstica</th>
+                                <th>Payload</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($order->attempts as $attempt)
+                            <tr>
+                                <td class="text-nowrap text-muted small">{{ $attempt->created_at->format('d/m/Y H:i:s') }}</td>
+                                <td class="fw-medium text-uppercase"><span class="badge bg-secondary">{{ $attempt->gateway }}</span></td>
+                                <td class="text-uppercase"><span class="badge bg-dark">{{ $attempt->payment_method }}</span></td>
+                                <td>
+                                     @if($attempt->status === 'success')
+                                         <span class="badge bg-success"><i class="bi bi-check"></i> Sucesso</span>
+                                     @else
+                                         <span class="badge bg-danger"><i class="bi bi-x"></i> Bloqueio/Falha</span>
+                                     @endif
+                                </td>
+                                <td><span class="text-muted small" style="max-width:300px; display:inline-block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="{{ $attempt->message }}">{{ $attempt->message }}</span></td>
+                                <td>
+                                    @if(!empty($attempt->response_payload))
+                                        <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#payloadModal{{ $attempt->id }}">
+                                            <i class="bi bi-braces"></i> Ver JSON
+                                        </button>
+                                        
+                                        <!-- Modal JSON -->
+                                        <div class="modal fade" id="payloadModal{{ $attempt->id }}" tabindex="-1" aria-hidden="true">
+                                          <div class="modal-dialog modal-lg">
+                                            <div class="modal-content">
+                                              <div class="modal-header">
+                                                <h1 class="modal-title fs-5">Snapshot de Resposta Operacional</h1>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                              </div>
+                                              <div class="modal-body p-0">
+                                                  <pre class="bg-dark text-success p-3 mb-0" style="max-height: 500px; overflow-y: auto;"><code>{{ json_encode($attempt->response_payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</code></pre>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                    @else
+                                        <span class="text-muted fw-light small">Oco</span>
+                                    @endif
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @else
+                <div class="alert alert-secondary text-center">Nenhum evento de captura registrado neste rastreador financeiro ainda.</div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
