@@ -29,7 +29,7 @@ class OrderController extends Controller
                          return '<span class="badge bg-warning text-dark">Pendente</span>';
                     })
                     ->addColumn('action', function($row){
-                         $btn = '<a href="'.route('admin.orders.show', $row->id).'" class="btn btn-info btn-sm me-1" title="Ver Seleção do Cliente"><i class="bi bi-card-image"></i> Ver Fotos</a>';
+                         $btn = '<a href="'.route('admin.orders.show', $row->id).'" class="btn btn-info btn-sm me-1 text-white fw-medium" title="Inspecionar Transação e Auditoria do Gateway"><i class="bi bi-search"></i> Inspecionar / Auditoria</a>';
                          
                          if($row->status === \App\Enums\OrderStatusEnum::PENDING) {
                              $btn .= '<form action="'.route('admin.orders.update', $row->id).'" method="POST" class="d-inline">

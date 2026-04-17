@@ -9,17 +9,14 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Sanctum\HasApiTokens;
 use OwenIt\Auditing\Contracts\Auditable;
-
 use App\Traits\HasUuid;
 
 #[Fillable(['name', 'email', 'password', 'role', 'uuid', 'document', 'phone', 'zipcode', 'address', 'address_number', 'city', 'state'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements Auditable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable, HasUuid, \OwenIt\Auditing\Auditable;
+    use HasFactory, Notifiable, HasUuid, \OwenIt\Auditing\Auditable;
 
     /**
      * Get the attributes that should be cast.
