@@ -105,4 +105,42 @@ class OrderController extends Controller
         $order->delete();
         return redirect()->route('admin.orders.index')->with('success', 'Fatura excluída permanentemente.');
     }
+
+    public function retry(Order $order)
+    {
+        if ($order->status === \App\Enums\OrderStatusEnum::PAID) {
+            return back()->with('error', 'Esta venda já está baixada e paga. Não pode ser retentada.');
+        }
+
+        if (!$order->gateway || $order->gateway === 'credit_card') {
+            return back()->with('error', 'Por conformidade PCI-DSS, transações de Cartão de Crédito devem ser retentadas manualmente pelo próprio Cliente no Ambiente Seguro. Impossível gerar nova cobrança em massa.');
+        }
+
+        try {
+            $methodEnum = \App\Enums\PaymentMethodEnum::tryFrom($order->gateway);
+            $gateway = \App\Services\Payments\PaymentGatewayFactory::resolve($methodEnum);
+            $paymentResponse = $gateway->generateCharge($order, null);
+            
+            \App\Models\OrderAttempt::create([
+                'order_id' => $order->id,
+                'gateway' => env('PAYMENT_GATEWAY', 'mercadopago'),
+                'payment_method' => $methodEnum->value,
+                'status' => $paymentResponse->success ? 'success' : 'failed',
+                'message' => $paymentResponse->message ?? 'Retentativa ADMINISTRATIVA disparada.',
+                'response_payload' => $paymentResponse->payload ?? [],
+            ]);
+
+            if ($paymentResponse->success) {
+                if (!empty($paymentResponse->payload)) {
+                    $order->update(['gateway_payload' => $paymentResponse->payload]);
+                }
+                return back()->with('success', 'Forçamento reemitido com sucesso junto a Operadora (' . strtoupper($order->gateway) . ')!');
+            }
+
+            return back()->with('error', 'A Operadora negou a tentativa da fatura: ' . $paymentResponse->message);
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Houve uma falha grave na retentativa manual: ' . $e->getMessage());
+        }
+    }
 }

@@ -65,6 +65,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     
     Route::resource('packages', PackageController::class);
     Route::resource('orders', OrderController::class)->only(['index', 'update', 'destroy', 'show']);
+    Route::post('orders/{order}/retry', [\App\Http\Controllers\Admin\OrderController::class, 'retry'])->name('orders.retry');
     // Settings
     Route::get('settings', [\App\Http\Controllers\Admin\SettingController::class, 'index'])->name('settings.index');
     Route::post('settings', [\App\Http\Controllers\Admin\SettingController::class, 'store'])->name('settings.store');

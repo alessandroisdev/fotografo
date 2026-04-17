@@ -32,6 +32,24 @@
                          <span class="badge bg-warning text-dark fs-5 px-4 py-2 rounded-pill shadow-sm"><i class="bi bi-hourglass-split"></i> Aguardando Pagamento</span>
                      @endif
                 </div>
+                
+                <div class="mt-4 d-flex justify-content-center gap-2">
+                    @if($order->status !== \App\Enums\OrderStatusEnum::PAID && $order->status !== \App\Enums\OrderStatusEnum::CANCELLED)
+                        <form action="{{ route('admin.orders.retry', $order->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Deseja forçar uma nova emissão/cobrança no Gateway? Isso só funciona em cobranças PIX/Boleto.');">
+                            @csrf
+                            <button type="submit" class="btn btn-warning text-dark fw-medium px-4 rounded-pill shadow-sm"><i class="bi bi-arrow-repeat"></i> Retentar Cobrança (Gateway)</button>
+                        </form>
+                    @endif
+                    
+                    @if($order->status !== \App\Enums\OrderStatusEnum::CANCELLED)
+                        <form action="{{ route('admin.orders.update', $order->id) }}" method="POST" class="d-inline" onsubmit="return confirm('ATENÇÃO: Cancelar esta fatura pode estornar o valor no gateway se ela já foi paga. Tem certeza?');">
+                            @csrf
+                            @method('PATCH')
+                            <input type="hidden" name="status" value="{{ \App\Enums\OrderStatusEnum::CANCELLED->value }}">
+                            <button type="submit" class="btn btn-danger fw-medium px-4 rounded-pill shadow-sm"><i class="bi bi-x-octagon"></i> Cancelar Pedido</button>
+                        </form>
+                    @endif
+                </div>
             </div>
         </div>
     </div>
