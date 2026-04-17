@@ -6,6 +6,7 @@
 @section('content')
 <!-- Include Dropzone CSS natively for this view -->
 <link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" type="text/css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css" />
 
 <style>
     .dropzone {
@@ -76,9 +77,19 @@
                             </div>
                         @else
                             <div class="col-6 col-md-3 col-lg-2 text-center" id="photo-{{ $photo->id }}">
-                                <div class="position-relative">
-                                    <img src="{{ Storage::url($photo->thumbnail_path) }}" class="img-fluid rounded border" alt="Thumbnail" style="height:150px; object-fit:cover; width:100%;">
-                                    <span class="badge bg-success position-absolute bottom-0 start-0 m-1"><i class="bi bi-check-circle"></i></span>
+                                <div class="position-relative photo-admin-item">
+                                    <a href="{{ Storage::url($photo->watermark_path) }}" class="glightbox" data-gallery="admin-gallery">
+                                        <img src="{{ Storage::url($photo->thumbnail_path) }}" class="img-fluid rounded border shadow-sm" alt="Thumbnail" style="height:150px; object-fit:cover; width:100%;">
+                                    </a>
+                                    <span class="badge bg-success position-absolute bottom-0 start-0 m-1 shadow"><i class="bi bi-check-circle"></i></span>
+                                    
+                                    <form action="{{ route('admin.galleries.photos.destroy', [$gallery->id, $photo->id]) }}" method="POST" class="position-absolute top-0 end-0 m-1" onsubmit="return confirm('Deseja excluir esta foto definitivamente do servidor?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-sm btn-danger rounded-circle shadow opacity-75 hover-opacity-100" style="padding: 0.25rem 0.4rem;">
+                                            <i class="bi bi-trash3-fill"></i>
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
                         @endif
@@ -94,7 +105,15 @@
 </div>
 
 <script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/mcstudios/glightbox/dist/js/glightbox.min.js"></script>
 <script>
+    // Inicializar o Lightbox
+    const lightbox = GLightbox({
+        selector: '.glightbox',
+        touchNavigation: true,
+        loop: true,
+    });
+
     Dropzone.options.massUploader = {
         maxFilesize: 500, // MB format
         acceptedFiles: 'image/jpeg,image/png,image/jpg,image/webp,.cr2,.cr3,.dng,.arw,.nef',

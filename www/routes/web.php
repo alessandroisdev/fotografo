@@ -49,9 +49,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::resource('clients', ClientController::class);
     Route::resource('galleries', GalleryController::class);
     
-    // Upload & Poll
+    // Upload, Poll & Delete Photos
     Route::post('galleries/{gallery}/photos', [PhotoController::class, 'store'])->name('galleries.photos.store');
     Route::get('galleries/{gallery}/photos/poll', [PhotoController::class, 'poll'])->name('galleries.photos.poll');
+    Route::delete('galleries/{gallery}/photos/{photo}', [PhotoController::class, 'destroy'])->name('galleries.photos.destroy');
     
     Route::resource('packages', PackageController::class);
     Route::resource('orders', OrderController::class)->only(['index', 'update']);

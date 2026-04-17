@@ -67,4 +67,29 @@ class PhotoController extends Controller
             })
         );
     }
+
+    public function destroy(Gallery $gallery, Photo $photo)
+    {
+        // Garante que a foto pertence à galeria informada
+        if ($photo->gallery_id !== $gallery->id) {
+            abort(403);
+        }
+
+        // Deletar RAW original do storage privado
+        if (\Illuminate\Support\Facades\Storage::disk($photo->storage_driver)->exists($photo->original_path)) {
+            \Illuminate\Support\Facades\Storage::disk($photo->storage_driver)->delete($photo->original_path);
+        }
+
+        // Deletar Miniaturas públicas
+        if ($photo->thumbnail_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($photo->thumbnail_path)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($photo->thumbnail_path);
+        }
+        if ($photo->watermark_path && \Illuminate\Support\Facades\Storage::disk('public')->exists($photo->watermark_path)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($photo->watermark_path);
+        }
+
+        $photo->delete();
+
+        return redirect()->back()->with('success', 'Imagem excluída permanentemente.');
+    }
 }

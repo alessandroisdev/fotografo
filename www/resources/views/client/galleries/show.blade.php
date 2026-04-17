@@ -3,35 +3,95 @@
 @section('title', $gallery->name)
 
 @section('content')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css" />
 <style>
     /* Styling for the selectable gallery items */
+    .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 15px;
+    }
     .photo-item {
         position: relative;
-        cursor: pointer;
+        overflow: hidden;
+        border-radius: 8px;
     }
     .photo-item img {
         transition: all 0.3s ease;
         border: 3px solid transparent;
         border-radius: 8px;
+        aspect-ratio: 1;
+        object-fit: cover;
     }
     .photo-item.selected img {
         border-color: var(--bs-secondary);
         transform: scale(0.97);
         filter: brightness(0.8);
     }
-    .check-icon {
+    
+    /* Overlay actions */
+    .action-overlay {
         position: absolute;
-        top: 15px;
-        right: 15px;
-        font-size: 1.5rem;
-        color: var(--bs-secondary);
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        padding: 40px 15px 15px;
+        background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
         opacity: 0;
-        transform: scale(0.5);
-        transition: all 0.3s ease;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+    }
+    
+    .photo-item:hover .action-overlay,
+    .photo-item.selected .action-overlay {
+        opacity: 1;
+    }
+
+    .btn-select {
+        pointer-events: auto;
+        cursor: pointer;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.2);
+        backdrop-filter: blur(5px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 2px solid white;
+        transition: all 0.2s ease;
+    }
+    .btn-select i {
+        font-size: 1.2rem;
+        color: white;
+    }
+    
+    .btn-zoom {
+        pointer-events: auto;
+        cursor: pointer;
+        color: white;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    }
+    .btn-zoom:hover {
+        color: var(--bs-secondary);
+    }
+
+    .photo-item.selected .btn-select {
+        background: var(--bs-secondary);
+        border-color: var(--bs-secondary);
+    }
+    
+    .check-icon {
+        display: none;
     }
     .photo-item.selected .check-icon {
-        opacity: 1;
-        transform: scale(1);
+        display: inline-block;
+    }
+    .photo-item.selected .circle-icon {
+        display: none;
     }
     
     /* Cart Floating Bar */
@@ -58,7 +118,7 @@
         <div>
             <a href="{{ route('client.dashboard') }}" class="btn btn-sm btn-outline-light rounded-pill mb-3"><i class="bi bi-arrow-left"></i> Voltar</a>
             <h2 class="fw-bold">{{ $gallery->name }}</h2>
-            <p class="text-white-50">{{ $gallery->description ?? 'Selecione abaixo as suas fotos favoritas tocando nelas.' }}</p>
+            <p class="text-white-50">{{ $gallery->description ?? 'Utilize o botão de seleção em cada foto para montar o seu pacote ideal.' }}</p>
         </div>
         <div class="text-end">
             <span class="badge bg-primary fs-6">{{ $gallery->photos->count() }} Fotos Disponíveis</span>
@@ -68,10 +128,25 @@
 
 <div class="gallery-grid" id="selection-grid">
     @forelse($gallery->photos as $photo)
-        <div class="photo-item" data-id="{{ $photo->id }}" onclick="toggleSelection(this)">
-            <!-- Carrega a versão com Marca d'Água construída pelo Worker -->
-            <img src="{{ Storage::url($photo->watermark_path) }}" alt="{{ $photo->original_name }}" class="img-fluid w-100 shadow-sm" loading="lazy">
-            <i class="bi bi-check-circle-fill check-icon"></i>
+        <div class="photo-item" id="photo-card-{{ $photo->id }}" data-id="{{ $photo->id }}">
+            
+            <!-- Thumbnail exibida no grid ligada ao Watermark da lightboox -->
+            <a href="{{ Storage::url($photo->watermark_path) }}" class="glightbox" data-gallery="client-gallery">
+                <img src="{{ Storage::url($photo->thumbnail_path) }}" alt="{{ $photo->original_name }}" class="img-fluid w-100 shadow-sm" loading="lazy">
+            </a>
+            
+            <!-- Controles de sobreposição -->
+            <div class="action-overlay">
+                <a href="{{ Storage::url($photo->watermark_path) }}" class="glightbox btn-zoom" data-gallery="client-gallery-zoom">
+                    <i class="bi bi-arrows-fullscreen fs-4"></i>
+                </a>
+                
+                <div class="btn-select shadow" onclick="toggleSelection('{{ $photo->id }}')">
+                    <i class="bi bi-circle circle-icon"></i>
+                    <i class="bi bi-check-lg check-icon"></i>
+                </div>
+            </div>
+
         </div>
     @empty
         <div class="col-12 text-center py-5">
@@ -97,15 +172,23 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/gh/mcstudios/glightbox/dist/js/glightbox.min.js"></script>
 <script>
+    // Inicializar o Lightbox
+    const lightbox = GLightbox({
+        selector: '.glightbox',
+        touchNavigation: true,
+        loop: true,
+    });
+
     let selectedPhotos = new Set();
     const cartBar = document.getElementById('cartBar');
     const countDisplay = document.getElementById('selectedCount');
     const checkoutForm = document.getElementById('checkoutForm');
     const idsInput = document.getElementById('photo_ids_input');
 
-    function toggleSelection(element) {
-        const id = element.getAttribute('data-id');
+    function toggleSelection(id) {
+        const element = document.getElementById('photo-card-' + id);
         
         if(selectedPhotos.has(id)) {
             selectedPhotos.delete(id);
