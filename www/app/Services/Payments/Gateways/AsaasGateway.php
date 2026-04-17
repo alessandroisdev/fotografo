@@ -34,7 +34,7 @@ class AsaasGateway implements PaymentGatewayInterface
                 $billingType = 'PIX';
             } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::CREDIT_CARD->value) {
                 $billingType = 'CREDIT_CARD';
-            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BANK_SLIP->value) {
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BOLETO->value) {
                 $billingType = 'BOLETO';
             } else {
                 $billingType = 'UNDEFINED'; 

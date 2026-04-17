@@ -107,7 +107,7 @@ class MercadoPagoGateway implements PaymentGatewayInterface
 
             } else {
                 // Checkout Pro legado para Boletos... (Boleto não pede cartão)
-                if ($order->gateway === \App\Enums\PaymentMethodEnum::BANK_SLIP->value || empty($paymentData)) {
+                if ($order->gateway === \App\Enums\PaymentMethodEnum::BOLETO->value || empty($paymentData)) {
                     $dashboardUrl = route('client.dashboard');
                     $payload = [
                         'items' => [

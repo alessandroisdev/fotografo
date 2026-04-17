@@ -73,7 +73,7 @@ class StripeGateway implements PaymentGatewayInterface
                 $paymentMethodTypes = ['card'];
                 if ($order->gateway === \App\Enums\PaymentMethodEnum::PIX->value) {
                     $paymentMethodTypes = ['pix'];
-                } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BANK_SLIP->value) {
+                } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BOLETO->value) {
                     $paymentMethodTypes = ['boleto'];
                 }
 
