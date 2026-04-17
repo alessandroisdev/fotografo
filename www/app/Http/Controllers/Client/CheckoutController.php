@@ -76,6 +76,21 @@ class CheckoutController extends Controller
 
         $request->session()->forget('checkout_photos');
 
-        return redirect()->route('client.dashboard')->with('success', 'Pedido gerado com sucesso! Acesse o portal do PIX ou aguarde o contato do seu Fotógrafo.');
+        // Factory Pattern resolvendo Gateway definido no Painel Admin via BD
+        $gateway = \App\Services\Payments\PaymentGatewayFactory::resolve();
+        $paymentResponse = $gateway->generateCharge($order);
+
+        if (!$paymentResponse->success) {
+            // Em caso de falhas de comunicação de API
+            return redirect()->route('client.dashboard')->with('error', $paymentResponse->message);
+        }
+
+        if ($paymentResponse->redirectUrl) {
+            // Redireciona para Plataforma Externa de Faturamento (Asaas)
+            return redirect($paymentResponse->redirectUrl);
+        }
+
+        // Cortesia, Dinheiro ou Pagamento Local
+        return redirect()->route('client.dashboard')->with('success', $paymentResponse->message);
     }
 }

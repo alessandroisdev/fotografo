@@ -42,19 +42,25 @@
 
                 <!-- PAYMENT -->
                 <div class="tab-pane fade p-4" id="payment">
-                    <h5 class="fw-bold mb-3"><i class="bi bi-bank2 text-success me-2"></i> Gateway Asaas / Stripe</h5>
+                    <h5 class="fw-bold mb-3"><i class="bi bi-bank2 text-success me-2"></i> Gestor Dinâmico de Gateway</h5>
                     <div class="alert alert-light border border-success border-opacity-25" role="alert">
-                        <i class="bi bi-shield-lock-fill text-success me-2"></i> Estas credenciais serão criptografadas e enviadas de forma segura em ambiente fechado para emissão de cobranças automáticas.
+                        <i class="bi bi-shield-lock-fill text-success me-2"></i> O Checkout do cliente será processado através da classe específica gerada abaixo (Strategy Pattern).
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Selecione o Meio de Faturamento Ativo</label>
+                        <select name="active_gateway" class="form-select form-select-lg shadow-sm border-0 bg-light">
+                            @foreach(\App\Enums\PaymentGatewayEnum::cases() as $gatewayEnum)
+                                <option value="{{ $gatewayEnum->value }}" {{ config('settings.active_gateway') == $gatewayEnum->value ? 'selected' : '' }}>
+                                    {{ $gatewayEnum->label() }}
+                                </option>
+                            @endforeach
+                        </select>
                     </div>
                     
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Asaas API Key (Token)</label>
+                        <label class="form-label fw-bold">Asaas API Key (Token) <span class="text-muted fw-normal">- Apenas se selecionar Asaas acima</span></label>
                         <input type="password" class="form-control bg-light" name="asaas_api_key" value="{{ config('settings.asaas_api_key') }}" placeholder="Ex: $aact_YTU5YTE0M2M... ">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Asaas Wallet ID</label>
-                        <input type="text" class="form-control bg-light" name="asaas_wallet_id" value="{{ config('settings.asaas_wallet_id') }}" placeholder="Identificador opcional da carteira de recebimento">
                     </div>
                 </div>
 
