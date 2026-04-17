@@ -119,9 +119,14 @@ class CheckoutController extends Controller
                 ];
             } else {
                 $paymentData = $request->only(['card_holder', 'card_number', 'card_expiry', 'card_cvv']);
-                $cleanNumber = preg_replace('/[^0-9]/', '', $paymentData['card_number'] ?? '');
+                
+                if (empty($paymentData['card_number']) || empty($paymentData['card_expiry']) || empty($paymentData['card_cvv'])) {
+                    return back()->with('error', 'Por favor, preencha todos os dados do Novo Cartão ou verifique o preenchimento.');
+                }
+                
+                $cleanNumber = preg_replace('/[^0-9]/', '', $paymentData['card_number']);
 
-                if ($request->has('save_new_card') && !empty($paymentData['card_number']) && !empty($paymentData['card_holder'])) {
+                if ($request->has('save_new_card') && !empty($paymentData['card_holder'])) {
                     \App\Models\UserCard::create([
                         'user_id' => Auth::id(),
                         'card_holder' => $paymentData['card_holder'],
@@ -228,9 +233,14 @@ class CheckoutController extends Controller
                 ];
             } else {
                 $paymentData = $request->only(['card_number', 'card_expiry', 'card_cvv', 'card_holder']);
-                $cleanNumber = preg_replace('/[^0-9]/', '', $paymentData['card_number'] ?? '');
+                
+                if (empty($paymentData['card_number']) || empty($paymentData['card_expiry']) || empty($paymentData['card_cvv'])) {
+                    return back()->with('error', 'Por favor, preencha todos os dados do novo cartão. Você esqueceu informações.');
+                }
+                
+                $cleanNumber = preg_replace('/[^0-9]/', '', $paymentData['card_number']);
 
-                if ($request->has('save_new_card') && !empty($paymentData['card_number']) && !empty($paymentData['card_holder'])) {
+                if ($request->has('save_new_card') && !empty($paymentData['card_holder'])) {
                     \App\Models\UserCard::create([
                         'user_id' => Auth::id(),
                         'card_holder' => $paymentData['card_holder'],

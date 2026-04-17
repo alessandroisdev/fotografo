@@ -213,7 +213,7 @@
                         <label class="form-label text-white-50 mb-3">Selecione uma Formação</label>
                         @foreach(\App\Enums\PaymentMethodEnum::cases() as $methodEnum)
                             <div class="form-check mb-2 bg-dark p-2 rounded border border-secondary" style="--bs-border-opacity: .3;">
-                                <input class="form-check-input ms-1 gateway-selector" onchange="toggleFormLogic(this, 'retry_{{ $order->id }}')" type="radio" name="payment_method" id="method_retry_{{ $methodEnum->value }}_{{ $order->id }}" value="{{ $methodEnum->value }}" required>
+                                <input class="form-check-input ms-1 gateway-selector" onclick="toggleFormLogic(this, 'retry_{{ $order->id }}')" type="radio" name="payment_method" id="method_retry_{{ $methodEnum->value }}_{{ $order->id }}" value="{{ $methodEnum->value }}" required>
                                 <label class="form-check-label text-white ms-2" for="method_retry_{{ $methodEnum->value }}_{{ $order->id }}">
                                     {{ $methodEnum->label() }}
                                 </label>
@@ -271,14 +271,14 @@
                              <div class="mb-4">
                                  @foreach($userCards as $card)
                                  <div class="form-check mb-2">
-                                     <input class="form-check-input vault-selector" type="radio" onchange="toggleVault(this, 'retry_{{ $order->id }}')" name="saved_card_id" id="card_saved_retry_{{ $card->id }}_{{ $order->id }}" value="{{ $card->id }}">
+                                     <input class="form-check-input vault-selector" type="radio" onclick="toggleVault(this, 'retry_{{ $order->id }}')" name="saved_card_id" id="card_saved_retry_{{ $card->id }}_{{ $order->id }}" value="{{ $card->id }}">
                                      <label class="form-check-label text-white" for="card_saved_retry_{{ $card->id }}_{{ $order->id }}">
                                          Utilizar {{ strtoupper($card->card_brand ?: 'CARTÃO') }} em cofre final {{ $card->last_four }}
                                      </label>
                                  </div>
                                  @endforeach
                                  <div class="form-check mt-3 pt-2 border-top border-secondary">
-                                     <input class="form-check-input vault-selector" type="radio" onchange="toggleVault(this, 'retry_{{ $order->id }}')" name="saved_card_id" id="card_new_retry_{{ $order->id }}" value="new" checked>
+                                     <input class="form-check-input vault-selector" type="radio" onclick="toggleVault(this, 'retry_{{ $order->id }}')" name="saved_card_id" id="card_new_retry_{{ $order->id }}" value="new" checked>
                                      <label class="form-check-label text-white" for="card_new_retry_{{ $order->id }}">Usar Cartão Inédito</label>
                                  </div>
                              </div>
