@@ -1,5 +1,5 @@
 import $ from 'jquery';
-import 'datatables.net-dt';
+import 'datatables.net-bs5';
 
 // Expõe globalmente se necessário
 (window as any).$ = $;
