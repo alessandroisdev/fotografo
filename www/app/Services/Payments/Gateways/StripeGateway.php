@@ -26,20 +26,40 @@ class StripeGateway implements PaymentGatewayInterface
     public function generateCharge(Order $order): PaymentResponse
     {
         try {
+            // Roteamento inteligente de Payment Method do Stripe
+            $paymentMethodTypes = ['card'];
+            if ($order->gateway === \App\Enums\PaymentMethodEnum::PIX->value) {
+                $paymentMethodTypes = ['pix'];
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BANK_SLIP->value) {
+                $paymentMethodTypes = ['boleto'];
+            }
+
+            $payload = [
+                'success_url' => route('client.dashboard', ['stripe_success' => '1']),
+                'cancel_url' => route('client.dashboard'),
+                'mode' => 'payment',
+                'client_reference_id' => $order->uuid,
+                'customer_email' => $order->user->email,
+                'payment_intent_data' => [
+                    'metadata' => [
+                        'uuid' => $order->uuid
+                    ]
+                ],
+                'line_items[0][price_data][currency]' => 'brl',
+                'line_items[0][price_data][product_data][name]' => 'Ensaios e Fotografias: ' . $order->gallery->name,
+                'line_items[0][price_data][unit_amount]' => round($order->total_amount, 2) * 100, // Stripe usa centavos
+                'line_items[0][quantity]' => 1,
+            ];
+
+            // Injeta o array de métodos dinamicamente permitidos
+            foreach ($paymentMethodTypes as $index => $type) {
+                $payload["payment_method_types[{$index}]"] = $type;
+            }
+
             $response = \Illuminate\Support\Facades\Http::withToken($this->secretKey)
                 ->asForm()
                 ->timeout(15)
-                ->post("{$this->baseUrl}/checkout/sessions", [
-                    'success_url' => route('client.dashboard', ['stripe_success' => '1']),
-                    'cancel_url' => route('client.dashboard'),
-                    'mode' => 'payment',
-                    'client_reference_id' => $order->uuid,
-                    'customer_email' => $order->user->email,
-                    'line_items[0][price_data][currency]' => 'brl',
-                    'line_items[0][price_data][product_data][name]' => 'Ensaios e Fotografias: ' . $order->gallery->name,
-                    'line_items[0][price_data][unit_amount]' => round($order->total_amount, 2) * 100, // Stripe usa centavos
-                    'line_items[0][quantity]' => 1,
-                ]);
+                ->post("{$this->baseUrl}/checkout/sessions", $payload);
 
             if ($response->failed()) {
                 Log::error('Stripe Payload Error', ['res' => $response->json()]);

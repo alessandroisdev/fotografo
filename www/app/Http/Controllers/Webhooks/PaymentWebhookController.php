@@ -140,22 +140,36 @@ class PaymentWebhookController extends Controller
         $type = $request->input('type');
         $dataObj = $request->input('data.object');
 
-        // Quando o cliente termina de inserir o CVC e foi aprovado
-        if ($type === 'checkout.session.completed') {
-            $orderUuid = $dataObj['client_reference_id'] ?? null;
-            $paymentIntentId = $dataObj['payment_intent'] ?? null;
+        // Identifica e captura Order por Checkout Session completada OU Async Completo
+        if (in_array($type, ['checkout.session.completed', 'checkout.session.async_payment_succeeded'])) {
+            // Em pagamentos lentos (Boleto/Pix), checkout completado AINDA PODE ter payment_status = "unpaid".
+            if (($dataObj['payment_status'] ?? '') === 'paid') {
+                $orderUuid = $dataObj['client_reference_id'] ?? null;
+                $paymentIntentId = $dataObj['payment_intent'] ?? null;
 
-            if ($orderUuid) {
-                $order = Order::where('uuid', $orderUuid)->first();
-                if ($order && $order->status !== \App\Enums\OrderStatusEnum::PAID) {
-                    // Atualizamos o gateway_transaction_id para o Intent! (cs_ pra pi_)
-                    $order->update([
-                        'status' => \App\Enums\OrderStatusEnum::PAID,
-                        'paid_at' => now(),
-                        'gateway_transaction_id' => $paymentIntentId 
-                    ]);
-                    Log::info("Pedido {$orderUuid} Pago via Stripe!");
+                if ($orderUuid) {
+                    $order = Order::where('uuid', $orderUuid)->first();
+                    if ($order && $order->status !== \App\Enums\OrderStatusEnum::PAID) {
+                        // Atualizamos o gateway_transaction_id para o Intent! (cs_ pra pi_)
+                        $order->update([
+                            'status' => \App\Enums\OrderStatusEnum::PAID,
+                            'paid_at' => now(),
+                            'gateway_transaction_id' => $paymentIntentId 
+                        ]);
+                        Log::info("Pedido {$orderUuid} Pago e Compensado via Stripe! (Type: {$type})");
+                    }
                 }
+            } else {
+                 Log::info("Stripe Sessão Completada, porém aguardando compensação (Ex: Boleto). Order UUID: " . ($dataObj['client_reference_id'] ?? 'N/A'));
+            }
+        } elseif ($type === 'checkout.session.async_payment_failed') {
+            $orderUuid = $dataObj['client_reference_id'] ?? null;
+            if ($orderUuid) {
+                 $order = Order::where('uuid', $orderUuid)->first();
+                 if ($order && $order->status !== \App\Enums\OrderStatusEnum::CANCELLED) {
+                      $order->update(['status' => \App\Enums\OrderStatusEnum::CANCELLED]);
+                      Log::info("Pedido {$order->uuid} reprovado assincronamente pelo Stripe.");
+                 }
             }
         } elseif ($type === 'charge.refunded') {
             $paymentIntentId = $dataObj['payment_intent'] ?? null;
