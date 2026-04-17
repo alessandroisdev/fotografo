@@ -22,16 +22,24 @@ use App\Models\Gallery;
 
 Route::get('/', function () {
     $galleries = Gallery::with(['photos' => function($query) {
-                        $query->where('status', 'ready')->inRandomOrder()->take(1);
+                        $query->where('status', 'ready')
+                              ->where('is_public', true)
+                              ->inRandomOrder()
+                              ->take(1);
                     }])
-                    ->withCount('photos')
-                    ->where('status', '!=', 'draft')
+                    ->withCount(['photos' => function ($q) {
+                        $q->where('is_public', true);
+                    }])
+                    ->where('is_public', true)
                     ->latest()
                     ->take(6)
                     ->get();
                     
     return view('home', compact('galleries'));
 });
+
+// Portfólio Público Dinâmico
+Route::get('/portfolio/{gallery:uuid}', [\App\Http\Controllers\PublicPortfolioController::class, 'show'])->name('portfolio.show');
 
 // Authentication Routes
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -49,9 +57,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::resource('clients', ClientController::class);
     Route::resource('galleries', GalleryController::class);
     
-    // Upload, Poll & Delete Photos
+    // Upload, Poll, Delete & Toggle Photos
     Route::post('galleries/{gallery}/photos', [PhotoController::class, 'store'])->name('galleries.photos.store');
     Route::get('galleries/{gallery}/photos/poll', [PhotoController::class, 'poll'])->name('galleries.photos.poll');
+    Route::patch('galleries/{gallery}/photos/{photo}/toggle-public', [PhotoController::class, 'togglePublic'])->name('galleries.photos.toggle-public');
     Route::delete('galleries/{gallery}/photos/{photo}', [PhotoController::class, 'destroy'])->name('galleries.photos.destroy');
     
     Route::resource('packages', PackageController::class);

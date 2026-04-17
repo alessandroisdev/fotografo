@@ -36,6 +36,12 @@
                 <i class="bi bi-info-circle-fill me-2"></i> Você irá fazer os uploads das fotos na página seguinte!
             </div>
 
+            <div class="mb-4 form-check form-switch fs-5 mt-4">
+                <input class="form-check-input" type="checkbox" role="switch" id="is_public_switch" name="is_public" value="1">
+                <label class="form-check-label fw-bold text-dark" for="is_public_switch">Exibir no Portfólio Público?</label>
+                <div class="form-text text-muted fs-6"><i class="bi bi-globe me-1"></i> Se marcado, esta galeria será listada no site base para qualquer visitante verificar seu trabalho.</div>
+            </div>
+
             <div class="d-flex justify-content-end mt-4">
                 <a href="{{ route('admin.galleries.index') }}" class="btn btn-outline-secondary me-2">Cancelar</a>
                 <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-right"></i> Criar & Prosseguir</button>

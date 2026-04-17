@@ -92,4 +92,15 @@ class PhotoController extends Controller
 
         return redirect()->back()->with('success', 'Imagem excluída permanentemente.');
     }
+
+    public function togglePublic(Gallery $gallery, Photo $photo)
+    {
+        if ($photo->gallery_id !== $gallery->id) {
+            abort(403);
+        }
+
+        $photo->update(['is_public' => !$photo->is_public]);
+        
+        return back()->with('success', $photo->is_public ? 'Foto tornada PÚBLICA.' : 'Foto tornada PRIVADA.');
+    }
 }

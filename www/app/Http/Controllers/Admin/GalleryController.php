@@ -49,6 +49,7 @@ class GalleryController extends Controller
 
         $validated['uuid'] = Str::uuid()->toString();
         $validated['status'] = \App\Enums\GalleryStatusEnum::DRAFT;
+        $validated['is_public'] = $request->has('is_public');
 
         $gallery = Gallery::create($validated);
 
@@ -80,6 +81,7 @@ class GalleryController extends Controller
         ]);
 
         $validated['status'] = \App\Enums\GalleryStatusEnum::tryFrom($request->status);
+        $validated['is_public'] = $request->has('is_public');
 
         $gallery->update($validated);
 

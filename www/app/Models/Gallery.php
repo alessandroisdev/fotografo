@@ -13,6 +13,7 @@ class Gallery extends Model
 
     protected $casts = [
         'status' => \App\Enums\GalleryStatusEnum::class,
+        'is_public' => 'boolean',
     ];
 
     public function user()

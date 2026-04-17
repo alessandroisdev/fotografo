@@ -38,7 +38,13 @@
                             <option value="published" {{ $gallery->status === \App\Enums\GalleryStatusEnum::PUBLISHED ? 'selected' : '' }}>Publicado (Acessível ao Cliente)</option>
                             <option value="archived" {{ $gallery->status === \App\Enums\GalleryStatusEnum::ARCHIVED ? 'selected' : '' }}>Arquivado</option>
                         </select>
-                        <div class="form-text"><i class="bi bi-info-circle"></i> O cliente só verá a galeria no Painel e Site se ela estiver Publicada.</div>
+                        <div class="form-text"><i class="bi bi-info-circle"></i> O cliente só verá a galeria no Painel se ela estiver Publicada.</div>
+                    </div>
+
+                    <div class="mb-4 form-check form-switch fs-5">
+                        <input class="form-check-input" type="checkbox" role="switch" id="is_public_switch" name="is_public" value="1" {{ $gallery->is_public ? 'checked' : '' }}>
+                        <label class="form-check-label fw-bold text-dark" for="is_public_switch">Exibir no Portfólio Público?</label>
+                        <div class="form-text text-muted fs-6"><i class="bi bi-globe me-1"></i> Se marcado, esta galeria será listada no site base para qualquer visitante verificar seu trabalho.</div>
                     </div>
 
                     <div class="d-flex justify-content-between">

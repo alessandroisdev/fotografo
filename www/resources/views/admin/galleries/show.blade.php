@@ -83,6 +83,15 @@
                                     </a>
                                     <span class="badge bg-success position-absolute bottom-0 start-0 m-1 shadow"><i class="bi bi-check-circle"></i></span>
                                     
+                                    <form action="{{ route('admin.galleries.photos.toggle-public', [$gallery->id, $photo->id]) }}" method="POST" class="position-absolute top-50 start-50 translate-middle">
+                                        @csrf
+                                        @method('PATCH')
+                                        <button type="submit" class="btn btn-sm {{ $photo->is_public ? 'btn-light text-success' : 'btn-dark text-warning' }} rounded shadow hover-opacity-100" style="padding: 0.25rem 0.5rem;" title="{{ $photo->is_public ? 'Visível no Portfólio - Ocultar?' : 'Oculto do Portfólio - Mostrar?' }}">
+                                            <i class="bi {{ $photo->is_public ? 'bi-eye-fill' : 'bi-eye-slash-fill' }}"></i> 
+                                            <span class="d-none d-lg-inline">{{ $photo->is_public ? 'Público' : 'Privado' }}</span>
+                                        </button>
+                                    </form>
+
                                     <form action="{{ route('admin.galleries.photos.destroy', [$gallery->id, $photo->id]) }}" method="POST" class="position-absolute top-0 end-0 m-1" data-confirm="Deseja excluir esta foto definitivamente do servidor?">
                                         @csrf
                                         @method('DELETE')
