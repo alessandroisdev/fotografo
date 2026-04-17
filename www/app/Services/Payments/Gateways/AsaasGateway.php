@@ -23,7 +23,7 @@ class AsaasGateway implements PaymentGatewayInterface
         $this->apiKey = config('settings.asaas_api_key', '');
     }
 
-    public function generateCharge(Order $order): PaymentResponse
+    public function generateCharge(Order $order, ?array $paymentData = null): PaymentResponse
     {
         try {
             // 1. Resgatar ou Criar o Cliente Externo (Wallet)
@@ -33,7 +33,6 @@ class AsaasGateway implements PaymentGatewayInterface
             if ($order->gateway === \App\Enums\PaymentMethodEnum::PIX->value) {
                 $billingType = 'PIX';
             } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::CREDIT_CARD->value) {
-                // Ao forçar Cartão, o Asaas restringe o Link apenas pra UI de Cartão de Crédito
                 $billingType = 'CREDIT_CARD';
             } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BANK_SLIP->value) {
                 $billingType = 'BOLETO';
@@ -50,6 +49,26 @@ class AsaasGateway implements PaymentGatewayInterface
                 'description' => 'Serviços Fotográficos - Galeria #' . $order->gallery->name,
                 'externalReference' => $order->uuid // Ponte Crucial para Webhook
             ];
+
+            // Roteamento Transparente Cartão de Crédito
+            if ($billingType === 'CREDIT_CARD' && !empty($paymentData)) {
+                $payload['creditCard'] = [
+                    'holderName' => $paymentData['card_holder'],
+                    'number' => preg_replace('/[^0-9]/', '', $paymentData['card_number']),
+                    'expiryMonth' => explode('/', $paymentData['card_expiry'])[0] ?? '',
+                    'expiryYear' => '20' . (explode('/', $paymentData['card_expiry'])[1] ?? ''),
+                    'ccv' => $paymentData['card_cvv']
+                ];
+                $payload['creditCardHolderInfo'] = [
+                    'name' => $paymentData['card_holder'],
+                    'email' => $order->user->email,
+                    'cpfCnpj' => preg_replace('/[^0-9]/', '', $order->user->document),
+                    'postalCode' => '01001-000', // Mock exigido por Compliance em Transparentes
+                    'addressNumber' => '100',
+                    'phone' => '11999999999'
+                ];
+                $payload['remoteIp'] = request()->ip() ?? '127.0.0.1'; // Necessário no V3
+            }
 
             $response = Http::withHeaders([
                 'access_token' => $this->apiKey,

@@ -53,12 +53,35 @@
                             <label class="form-label fw-bold text-white mb-2 d-block">Como deseja pagar?</label>
                             @foreach(\App\Enums\PaymentMethodEnum::cases() as $methodEnum)
                                 <div class="form-check mb-2 bg-dark p-2 rounded border border-secondary" style="--bs-border-opacity: .3;">
-                                    <input class="form-check-input ms-1" type="radio" name="payment_method" id="method_{{ $methodEnum->value }}_{{ $package->id }}" value="{{ $methodEnum->value }}" required>
+                                    <input class="form-check-input ms-1 gateway-selector" onchange="toggleCardForm(this, '{{ $package->id }}')" type="radio" name="payment_method" id="method_{{ $methodEnum->value }}_{{ $package->id }}" value="{{ $methodEnum->value }}" required>
                                     <label class="form-check-label text-white ms-2" for="method_{{ $methodEnum->value }}_{{ $package->id }}">
                                         {{ $methodEnum->label() }}
                                     </label>
                                 </div>
                             @endforeach
+                        </div>
+
+                        <!-- Formulário Transparente de Cartão (Oculto por Padrão) -->
+                        <div id="card_form_{{ $package->id }}" class="card-form-container d-none mb-4 text-start bg-dark p-3 rounded border border-secondary shadow-sm" style="--bs-border-opacity: .3;">
+                             <h6 class="text-white mb-3 fw-bold"><i class="bi bi-credit-card me-2"></i>Dados do Cartão (Pagamento Seguro)</h6>
+                             <div class="mb-3">
+                                  <label class="form-label text-white-50 small mb-1">Nome Impresso no Cartão</label>
+                                  <input type="text" name="card_holder" class="form-control bg-dark text-white border-secondary card-input" placeholder="EX: JOAO DA SILVA">
+                             </div>
+                             <div class="mb-3">
+                                  <label class="form-label text-white-50 small mb-1">Número do Cartão</label>
+                                  <input type="text" name="card_number" class="form-control bg-dark text-white border-secondary card-input" placeholder="0000 0000 0000 0000">
+                             </div>
+                             <div class="row g-2">
+                                  <div class="col-6">
+                                       <label class="form-label text-white-50 small mb-1">Validade (MM/YY)</label>
+                                       <input type="text" name="card_expiry" class="form-control bg-dark text-white border-secondary card-input" placeholder="12/28">
+                                  </div>
+                                  <div class="col-6">
+                                       <label class="form-label text-white-50 small mb-1">CVV</label>
+                                       <input type="text" name="card_cvv" class="form-control bg-dark text-white border-secondary card-input" placeholder="123">
+                                  </div>
+                             </div>
                         </div>
 
                         <button type="submit" class="btn btn-primary w-100 fw-bold py-3 rounded-pill shadow">Confirmar Pacote e Pagar</button>
@@ -70,3 +93,24 @@
     @endforeach
 </div>
 @endsection
+
+@push('scripts')
+<script>
+    function toggleCardForm(radio, packageId) {
+        // Esconde todos os forms e limpa validations
+        document.querySelectorAll('.card-form-container').forEach(el => {
+            el.classList.add('d-none');
+            el.querySelectorAll('input').forEach(input => input.required = false);
+        });
+        
+        // Se escolheu credit_card, mostra o container correspondente e seta required
+        if (radio.value === 'credit_card') {
+            const container = document.getElementById('card_form_' + packageId);
+            if (container) {
+                container.classList.remove('d-none');
+                container.querySelectorAll('input').forEach(input => input.required = true);
+            }
+        }
+    }
+</script>
+@endpush

@@ -90,25 +90,32 @@ class CheckoutController extends Controller
 
         $request->session()->forget('checkout_photos');
 
+        // Coleta Array Mestre do Cartão se aplicável
+        $paymentData = [];
+        if ($paymentMethodEnum === \App\Enums\PaymentMethodEnum::CREDIT_CARD && $request->filled('card_number')) {
+             $paymentData = $request->only(['card_holder', 'card_number', 'card_expiry', 'card_cvv']);
+        }
+
         // Factory Pattern resolvendo Múltiplos Gateways via Enum Method
         $gateway = \App\Services\Payments\PaymentGatewayFactory::resolve($paymentMethodEnum);
-        $paymentResponse = $gateway->generateCharge($order);
+        $paymentResponse = $gateway->generateCharge($order, empty($paymentData) ? null : $paymentData);
 
         if (!$paymentResponse->success) {
             // Em caso de falhas de comunicação de API
             return redirect()->route('client.dashboard')->with('error', $paymentResponse->message);
         }
 
-        if ($paymentResponse->externalId) {
+        // Os controladores da V2 agora podem já liquidar as Orders na hora
+        if ($paymentResponse->externalId && empty($order->gateway_transaction_id)) {
             $order->update(['gateway_transaction_id' => $paymentResponse->externalId]);
         }
 
         if ($paymentResponse->redirectUrl) {
-            // Redireciona para Plataforma Externa de Faturamento Mapeada (Asaas/Stripe/MercadoPago etc)
+            // Redireciona para Plataforma Externa de Faturamento (ApproveLinks / Links de Ocultos Boleto/Pix)
             return redirect($paymentResponse->redirectUrl);
         }
 
-        // Cortesia, Dinheiro ou Pagamento Local
+        // Transparente Completo Autorizado (Cartões à vista aprovados de primeira ou dinheiro físico)
         return redirect()->route('client.dashboard')->with('success', $paymentResponse->message);
     }
 
@@ -116,7 +123,11 @@ class CheckoutController extends Controller
     public function retryPayment(Request $request, $uuid)
     {
         $request->validate([
-            'payment_method' => 'required|string'
+            'payment_method' => 'required|string',
+            'card_number' => 'nullable|string',
+            'card_holder' => 'nullable|string',
+            'card_expiry' => 'nullable|string',
+            'card_cvv' => 'nullable|string'
         ]);
 
         $order = Order::where('uuid', $uuid)->where('user_id', Auth::id())->firstOrFail();
@@ -130,18 +141,20 @@ class CheckoutController extends Controller
             return back()->with('error', 'Método de pagamento inválido.');
         }
 
+        // Coleta Novamente se tentar por Cartão Limpo
+        $paymentData = [];
+        if ($paymentMethodEnum === \App\Enums\PaymentMethodEnum::CREDIT_CARD && $request->filled('card_number')) {
+             $paymentData = $request->only(['card_holder', 'card_number', 'card_expiry', 'card_cvv']);
+        }
+
         // Atualiza o gateway de preferência
         $order->update(['gateway' => $paymentMethodEnum->value]);
 
         $gateway = \App\Services\Payments\PaymentGatewayFactory::resolve($paymentMethodEnum);
-        $paymentResponse = $gateway->generateCharge($order);
+        $paymentResponse = $gateway->generateCharge($order, empty($paymentData) ? null : $paymentData);
 
         if (!$paymentResponse->success) {
             return redirect()->route('client.dashboard')->with('error', $paymentResponse->message);
-        }
-
-        if ($paymentResponse->externalId) {
-            $order->update(['gateway_transaction_id' => $paymentResponse->externalId]);
         }
 
         if ($paymentResponse->redirectUrl) {

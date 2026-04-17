@@ -11,9 +11,10 @@ interface PaymentGatewayInterface
      * Translates an internal SaaS Order logic into a valid gateway charge intent.
      * 
      * @param Order $order
+     * @param array|null $paymentData Raw transparent sensitive keys locally gathered.
      * @return PaymentResponse
      */
-    public function generateCharge(Order $order): PaymentResponse;
+    public function generateCharge(Order $order, ?array $paymentData = null): PaymentResponse;
 
     /**
      * Reverts a processed transaction directly against the financial institution.

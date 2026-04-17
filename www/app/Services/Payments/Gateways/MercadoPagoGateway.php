@@ -57,39 +57,84 @@ class MercadoPagoGateway implements PaymentGatewayInterface
                     'Content-Type' => 'application/json'
                 ])->timeout(15)->post("{$this->baseUrl}/v1/payments", $payload);
 
-            } else {
-                // Checkout Pro padrão para Cartões e Boleto
-                $dashboardUrl = route('client.dashboard');
-                $payload = [
-                    'items' => [
-                        [
-                            'title' => 'Fotografias Finais - ' . $order->gallery->name,
-                            'description' => 'Acesso definitivo ao Acervo Fotográfico.',
-                            'quantity' => 1,
-                            'currency_id' => 'BRL',
-                            'unit_price' => round($order->total_amount, 2),
+            // Roteamento Transparente Cartão de Crédito
+            if ($order->gateway === \App\Enums\PaymentMethodEnum::CREDIT_CARD->value && !empty($paymentData)) {
+                // 1. Gerar Token PCI via PublicKey Server-Side
+                $tokenResponse = \Illuminate\Support\Facades\Http::withHeaders([
+                    'Content-Type' => 'application/json'
+                ])->post("{$this->baseUrl}/v1/card_tokens?public_key={$this->publicKey}", [
+                    'card_number' => preg_replace('/[^0-9]/', '', $paymentData['card_number']),
+                    'expiration_month' => (int) explode('/', $paymentData['card_expiry'])[0],
+                    'expiration_year' => (int) '20' . explode('/', $paymentData['card_expiry'])[1],
+                    'security_code' => $paymentData['card_cvv'],
+                    'cardholder' => [
+                        'name' => $paymentData['card_holder'],
+                        'identification' => [
+                            'type' => 'CPF',
+                            'number' => preg_replace('/[^0-9]/', '', $order->user->document ?? '00000000000')
                         ]
-                    ],
+                    ]
+                ]);
+
+                if ($tokenResponse->failed()) {
+                    Log::error('MP Tokenization Error', ['res' => $tokenResponse->json()]);
+                    throw new \Exception('O Mercado Pago negou o processamento primário (Token) desse cartão.');
+                }
+
+                $cardTokenId = $tokenResponse->json()['id'];
+                
+                // Determina a bandeira básica
+                $bin = substr(preg_replace('/[^0-9]/', '', $paymentData['card_number']), 0, 6);
+                $paymentMethodId = str_starts_with($bin, '4') ? 'visa' : 'master';
+
+                // 2. Disparar Pagamento V1 limpo
+                $payload = [
+                    'transaction_amount' => round($order->total_amount, 2),
+                    'token' => $cardTokenId,
+                    'description' => 'Fotografias Finais - ' . $order->gallery->name,
+                    'installments' => 1,
+                    'payment_method_id' => $paymentMethodId,
                     'payer' => [
-                        'name' => $order->user->name,
                         'email' => $order->user->email,
                     ],
-                    'external_reference' => $order->uuid,
-                    'back_urls' => [
-                        'success' => $dashboardUrl,
-                        'pending' => $dashboardUrl,
-                        'failure' => $dashboardUrl
-                    ]
+                    'external_reference' => $order->uuid
                 ];
-
-                if (!\Illuminate\Support\Facades\App::environment('local')) {
-                    $payload['auto_return'] = 'approved';
-                }
 
                 $response = \Illuminate\Support\Facades\Http::withHeaders([
                     'Authorization' => 'Bearer ' . $this->accessToken,
+                    'X-Idempotency-Key' => $order->uuid . rand(),
                     'Content-Type' => 'application/json'
-                ])->timeout(15)->post("{$this->baseUrl}/checkout/preferences", $payload);
+                ])->timeout(15)->post("{$this->baseUrl}/v1/payments", $payload);
+
+            } else {
+                // Checkout Pro legado para Boletos... (Boleto não pede cartão)
+                if ($order->gateway === \App\Enums\PaymentMethodEnum::BANK_SLIP->value || empty($paymentData)) {
+                    $dashboardUrl = route('client.dashboard');
+                    $payload = [
+                        'items' => [
+                            [
+                                'title' => 'Fotografias Finais - ' . $order->gallery->name,
+                                'description' => 'Acesso definitivo ao Acervo Fotográfico.',
+                                'quantity' => 1,
+                                'currency_id' => 'BRL',
+                                'unit_price' => round($order->total_amount, 2),
+                            ]
+                        ],
+                        'payer' => [
+                            'name' => $order->user->name,
+                            'email' => $order->user->email,
+                        ],
+                        'external_reference' => $order->uuid,
+                        'back_urls' => [
+                            'success' => $dashboardUrl,
+                        ]
+                    ];
+    
+                    $response = \Illuminate\Support\Facades\Http::withHeaders([
+                        'Authorization' => 'Bearer ' . $this->accessToken,
+                        'Content-Type' => 'application/json'
+                    ])->timeout(15)->post("{$this->baseUrl}/checkout/preferences", $payload);
+                }
             }
 
             if ($response->failed()) {
@@ -107,8 +152,19 @@ class MercadoPagoGateway implements PaymentGatewayInterface
                 $redirectUrl = $payloadRes['point_of_interaction']['transaction_data']['ticket_url'] ?? null;
                 $externalId = $payloadRes['id'] ?? null;
                 $message = 'Redirecionando para o QR Code PIX (Mercado Pago)...';
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::CREDIT_CARD->value && !empty($paymentData)) {
+                // Pagamento Transparente Cartão de Crédito
+                $redirectUrl = null;
+                $externalId = $payloadRes['id'] ?? null;
+                if (($payloadRes['status'] ?? '') === 'approved') {
+                    $order->update(['status' => \App\Enums\OrderStatusEnum::PAID, 'paid_at' => now(), 'gateway_transaction_id' => $externalId]);
+                    $message = 'Transação por Cartão V1 processada e aprovada com sucesso!';
+                } else {
+                    $order->update(['gateway_transaction_id' => $externalId]);
+                    $message = 'Transação registrada (Status: ' . ($payloadRes['status'] ?? 'pending') . '). Depende de processamento bancário.';
+                }
             } else {
-                // Preference de Cartão / Boleto
+                // Preference de Boleto
                 $redirectKey = $this->isSandbox ? 'sandbox_init_point' : 'init_point';
                 $redirectUrl = $payloadRes[$redirectKey] ?? null;
                 $externalId = $payloadRes['id'] ?? null; // ID da Preference

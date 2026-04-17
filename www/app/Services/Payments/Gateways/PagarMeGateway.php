@@ -95,18 +95,69 @@ class PagarMeGateway implements PaymentGatewayInterface
                     externalId: $chargeId
                 );
 
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::CREDIT_CARD->value && !empty($paymentData)) {
+                // Fluxo Transparente Cartão de Crédito
+                $payload = [
+                    'code' => $order->uuid,
+                    'customer' => $baseCustomer,
+                    'items' => $baseItems,
+                    'payments' => [[
+                        'payment_method' => 'credit_card',
+                        'credit_card' => [
+                            'installments' => 1,
+                            'statement_descriptor' => 'FOTOGRAFO',
+                            'card' => [
+                                'number' => preg_replace('/[^0-9]/', '', $paymentData['card_number']),
+                                'holder_name' => $paymentData['card_holder'],
+                                'exp_month' => (int) explode('/', $paymentData['card_expiry'])[0],
+                                'exp_year' => (int) explode('/', $paymentData['card_expiry'])[1],
+                                'cvv' => $paymentData['card_cvv'],
+                                'billing_address' => [
+                                    'line_1' => 'Avenida Paulista, 1000',
+                                    'zip_code' => '01310100',
+                                    'city' => 'Sao Paulo',
+                                    'state' => 'SP',
+                                    'country' => 'BR'
+                                ]
+                            ]
+                        ]
+                    ]]
+                ];
+
+                $response = \Illuminate\Support\Facades\Http::withBasicAuth($this->apiKey, '')
+                    ->timeout(15)
+                    ->post("{$this->baseUrl}/orders", $payload);
+
+                if ($response->failed()) {
+                    Log::error('PagarMe API Card Error', ['body' => $response->json()]);
+                    return PaymentResponse::make(false, 'O Pagar.Me recusou a transação do cartão de crédito (Verifique o limite ou os dados informados).');
+                }
+
+                $pgmOrder = $response->json();
+                $chargeId = $pgmOrder['charges'][0]['id'] ?? $pgmOrder['id'];
+                $status = $pgmOrder['status'] ?? 'pending';
+                
+                if ($status === 'paid') {
+                     $order->update(['status' => \App\Enums\OrderStatusEnum::PAID, 'paid_at' => now(), 'gateway_transaction_id' => $chargeId]);
+                     $msg = 'Transação Transparente V5 (Cartão) Autorizada!';
+                } else {
+                     $order->update(['status' => 'pending', 'gateway_transaction_id' => $chargeId]);
+                     $msg = "Transação capturada ({$status}), aguardando processamento bancário da operadora.";
+                }
+
+                return PaymentResponse::make(
+                    success: true,
+                    message: $msg,
+                    redirectUrl: null,
+                    externalId: $chargeId
+                );
             } else {
-                // Fluxo Cartões / Boleto: Payment Link API para interface de alta conversão
+                // Fluxo Boleto
                 $payload = [
                     'name' => 'Pedido #' . substr($order->uuid, 0, 8),
                     'items' => $baseItems,
                     'payment_settings' => [
-                        'accepted_payment_methods' => ['credit_card', 'boleto'],
-                        'credit_card_settings' => [
-                            'installments_setup' => [
-                                'interest_type' => 'simple'
-                            ]
-                        ]
+                        'accepted_payment_methods' => ['boleto'],
                     ],
                     'customer' => $baseCustomer,
                     'metadata' => [
@@ -128,7 +179,7 @@ class PagarMeGateway implements PaymentGatewayInterface
 
                 return PaymentResponse::make(
                     success: true,
-                    message: 'Encaminhando ao Link Único Seguro do Pagar.me',
+                    message: 'Encaminhando ao Link Único Seguro do Pagar.me (Boleto)',
                     redirectUrl: $pgmLink['url'] ?? null,
                     externalId: $pgmLink['id'] ?? null // ID do link, no webhook virá o Code = OrderUuid
                 );
