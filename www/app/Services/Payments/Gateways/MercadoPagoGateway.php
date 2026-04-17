@@ -23,7 +23,7 @@ class MercadoPagoGateway implements PaymentGatewayInterface
         $this->baseUrl = 'https://api.mercadopago.com';
     }
 
-    public function generateCharge(Order $order): PaymentResponse
+    public function generateCharge(Order $order, ?array $paymentData = null): PaymentResponse
     {
         try {
             // Branching implementation: se for PIX direto, usar API v1 Transparente do Mercado Pago.

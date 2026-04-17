@@ -15,7 +15,7 @@ class ManualGateway implements PaymentGatewayInterface
         $this->isFree = $isFree;
     }
 
-    public function generateCharge(Order $order): PaymentResponse
+    public function generateCharge(Order $order, ?array $paymentData = null): PaymentResponse
     {
         if ($this->isFree) {
             // Cortesia Integral
