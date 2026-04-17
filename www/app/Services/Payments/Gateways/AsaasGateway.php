@@ -29,18 +29,32 @@ class AsaasGateway implements PaymentGatewayInterface
             // 1. Resgatar ou Criar o Cliente Externo (Wallet)
             $customerId = $this->resolveCustomer($order->user);
 
+            // Condicional de Roteamento de Faturamento API V3
+            if ($order->gateway === \App\Enums\PaymentMethodEnum::PIX->value) {
+                $billingType = 'PIX';
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::CREDIT_CARD->value) {
+                // Ao forçar Cartão, o Asaas restringe o Link apenas pra UI de Cartão de Crédito
+                $billingType = 'CREDIT_CARD';
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BANK_SLIP->value) {
+                $billingType = 'BOLETO';
+            } else {
+                $billingType = 'UNDEFINED'; 
+            }
+
             // 2. Montar Requisição de Cobrança (Fatura)
-            $response = Http::withHeaders([
-                'access_token' => $this->apiKey,
-                'Content-Type' => 'application/json'
-            ])->timeout(15)->post($this->baseUrl . '/payments', [
+            $payload = [
                 'customer' => $customerId,
-                'billingType' => 'UNDEFINED', // Permite o cliente decidir Cartão, Boleto ou PIX pela página do Asaas
+                'billingType' => $billingType,
                 'value' => round($order->total_amount, 2),
                 'dueDate' => date('Y-m-d', strtotime('+3 days')),
                 'description' => 'Serviços Fotográficos - Galeria #' . $order->gallery->name,
                 'externalReference' => $order->uuid // Ponte Crucial para Webhook
-            ]);
+            ];
+
+            $response = Http::withHeaders([
+                'access_token' => $this->apiKey,
+                'Content-Type' => 'application/json'
+            ])->timeout(15)->post($this->baseUrl . '/payments', $payload);
 
             if ($response->failed()) {
                 Log::error('Asaas Payment Error', ['body' => $response->json()]);
@@ -51,15 +65,32 @@ class AsaasGateway implements PaymentGatewayInterface
             }
 
             $responseData = $response->json();
+            $paymentId = $responseData['id'];
             
-            // 3. Registrar o ID financeiro como Pending e devolver URL
-            $order->update(['status' => 'pending']);
+            // 3. Registrar o ID financeiro como Pending
+            $order->update(['status' => 'pending', 'gateway_transaction_id' => $paymentId]);
+
+            // Se for PIX, nós fazemos a SEGUNDA chamada pra pegar o Payload Copy+Paste ou Base64 (Transparente)
+            if ($billingType === 'PIX') {
+                $pixResponse = Http::withHeaders([
+                    'access_token' => $this->apiKey,
+                    'Content-Type' => 'application/json'
+                ])->timeout(10)->get($this->baseUrl . "/payments/{$paymentId}/pixQrCode");
+                
+                if ($pixResponse->successful()) {
+                    // Nós podemos guardar a URL ou o Payload String. No caso, vamos retornar null pra URL de link,
+                    // assumindo que no futuro o Gateway retorne Strings base64 se quisermos. O Frontend costuma usar redirect.
+                    // Para fins de universalidade temporária, podemos mandar a InvoiceUrl que exibe o Pix do Asaas.
+                    // Mas tentaremos retornar a URL crua do QR Code se suportado futuramente na view.
+                    Log::info('PIX gerado', ['pix' => $pixResponse->json()]);
+                }
+            }
 
             return PaymentResponse::make(
                 success: true,
-                message: 'Fatura gerada em ambiente Asaas com sucesso!',
+                message: $billingType === 'PIX' ? 'Gerando chave de transferência central...' : 'Fatura em Faturamento Eletrônico Asaas Acionada',
                 redirectUrl: $responseData['invoiceUrl'] ?? null,
-                externalId: $responseData['id'] ?? null
+                externalId: $paymentId
             );
 
         } catch (\Exception $e) {
@@ -80,6 +111,11 @@ class AsaasGateway implements PaymentGatewayInterface
         // Limpa formatações para comparar na base
         $document = preg_replace('/[^0-9]/', '', $user->document);
 
+        // Mercado Pago / Asaas Sandbox/Production exige CPF Válido. Injeta Fake em testes se inválido.
+        if (empty($document) || (strlen($document) !== 11 && strlen($document) !== 14)) {
+            $document = \Illuminate\Support\Facades\App::environment('local') ? '19119119100' : '00000000000';
+        }
+
         // Busca o indivíduo por Cpf (Geralmente 1 para cada CPF na conta do fotógrafo)
         $search = Http::withHeaders(['access_token' => $this->apiKey])
                       ->timeout(10)
@@ -97,7 +133,7 @@ class AsaasGateway implements PaymentGatewayInterface
             'name' => $user->name,
             'email' => $user->email,
             'cpfCnpj' => $document,
-            'phone' => preg_replace('/[^0-9]/', '', $user->phone),
+            'phone' => preg_replace('/[^0-9]/', '', $user->phone ?? '11999999999'),
             'externalReference' => $user->uuid
         ]);
 

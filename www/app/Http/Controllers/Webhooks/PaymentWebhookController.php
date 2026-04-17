@@ -54,13 +54,16 @@ class PaymentWebhookController extends Controller
         if (in_array($event, ['PAYMENT_RECEIVED', 'PAYMENT_CONFIRMED'])) {
             // Impedir processamento duplicado
             if ($order->status !== \App\Enums\OrderStatusEnum::PAID) {
+                $transactionId = $paymentData['id'] ?? null;
+
                 $order->update([
                     'status' => \App\Enums\OrderStatusEnum::PAID,
                     'paid_at' => now(),
+                    'gateway_transaction_id' => $transactionId ?? $order->gateway_transaction_id
                 ]);
-                Log::info('Pedido UUID ' . $orderUuid . ' marcado como PAID via Webhook!');
                 
-                // TODO: Event::dispatch(new OrderPaid($order));
+                $billingType = $paymentData['billingType'] ?? 'Desconhecido';
+                Log::info("Pedido UUID {$orderUuid} marcado como PAID via Asaas Webhook! (Modo: {$billingType})");
             }
         } elseif (in_array($event, ['PAYMENT_OVERDUE', 'PAYMENT_DELETED', 'PAYMENT_REFUNDED'])) {
              // Opções secundárias (Estornos)

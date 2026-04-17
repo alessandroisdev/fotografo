@@ -12,12 +12,15 @@ class StripeGateway implements PaymentGatewayInterface
     private bool $isSandbox;
     private string $publishableKey;
     private string $secretKey;
+    private string $baseUrl;
 
     public function __construct()
     {
         $this->isSandbox = config('settings.stripe_environment', 'sandbox') !== 'production';
         $this->publishableKey = config('settings.stripe_publishable_key', '');
         $this->secretKey = config('settings.stripe_secret_key', '');
+        
+        $this->baseUrl = 'https://api.stripe.com/v1';
     }
 
     public function generateCharge(Order $order): PaymentResponse
@@ -26,7 +29,7 @@ class StripeGateway implements PaymentGatewayInterface
             $response = \Illuminate\Support\Facades\Http::withToken($this->secretKey)
                 ->asForm()
                 ->timeout(15)
-                ->post('https://api.stripe.com/v1/checkout/sessions', [
+                ->post("{$this->baseUrl}/checkout/sessions", [
                     'success_url' => route('client.dashboard', ['stripe_success' => '1']),
                     'cancel_url' => route('client.dashboard'),
                     'mode' => 'payment',
@@ -76,7 +79,7 @@ class StripeGateway implements PaymentGatewayInterface
             $response = \Illuminate\Support\Facades\Http::withToken($this->secretKey)
                 ->asForm()
                 ->timeout(15)
-                ->post('https://api.stripe.com/v1/refunds', $payload);
+                ->post("{$this->baseUrl}/refunds", $payload);
 
             if ($response->failed()) {
                 Log::error('Stripe Refund Execution Error', ['b' => $response->json()]);
