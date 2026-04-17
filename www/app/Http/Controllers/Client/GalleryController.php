@@ -11,7 +11,7 @@ class GalleryController extends Controller
     public function show($uuid)
     {
         $gallery = Gallery::where('uuid', $uuid)
-                 ->where('status', '!=', 'draft')
+                 ->where('status', '!=', \App\Enums\GalleryStatusEnum::DRAFT)
                  ->with(['photos' => function($q){
                      // Apenas fotos prontas são exibidas para cliente
                      $q->where('status', 'ready');

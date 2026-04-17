@@ -38,7 +38,7 @@
                 { data: 'client_name', name: 'client_name' },
                 { data: 'status', name: 'status', render: function(data) {
                     if(data === 'draft') return '<span class="badge bg-secondary">Rascunho</span>';
-                    if(data === 'published_public') return '<span class="badge bg-success">Público</span>';
+                    if(data === 'published') return '<span class="badge bg-success">Público</span>';
                     return '<span class="badge bg-warning text-dark">Privado</span>';
                 }},
                 { data: 'action', name: 'action', orderable: false, searchable: false }

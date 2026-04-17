@@ -34,9 +34,9 @@
                     <div class="mb-4">
                         <label class="form-label fw-bold text-primary">Status de Publicação</label>
                         <select name="status" class="form-select bg-light border-primary" required>
-                            <option value="draft" {{ $gallery->status == 'draft' ? 'selected' : '' }}>Rascunho (Oculto)</option>
-                            <option value="published" {{ $gallery->status == 'published' ? 'selected' : '' }}>Publicado (Acessível ao Cliente)</option>
-                            <option value="archived" {{ $gallery->status == 'archived' ? 'selected' : '' }}>Arquivado</option>
+                            <option value="draft" {{ $gallery->status === \App\Enums\GalleryStatusEnum::DRAFT ? 'selected' : '' }}>Rascunho (Oculto)</option>
+                            <option value="published" {{ $gallery->status === \App\Enums\GalleryStatusEnum::PUBLISHED ? 'selected' : '' }}>Publicado (Acessível ao Cliente)</option>
+                            <option value="archived" {{ $gallery->status === \App\Enums\GalleryStatusEnum::ARCHIVED ? 'selected' : '' }}>Arquivado</option>
                         </select>
                         <div class="form-text"><i class="bi bi-info-circle"></i> O cliente só verá a galeria no Painel e Site se ela estiver Publicada.</div>
                     </div>

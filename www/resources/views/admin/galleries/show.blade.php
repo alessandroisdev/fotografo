@@ -46,7 +46,7 @@
     <div class="col-12 col-lg-4">
         <div class="card border-0 shadow-sm rounded-4 bg-primary text-white h-100">
             <div class="card-body p-4">
-                <span class="badge bg-warning text-dark mb-2 rounded-pill">{{ strtoupper($gallery->status) }}</span>
+                <span class="badge bg-warning text-dark mb-2 rounded-pill">{{ strtoupper($gallery->status->value) }}</span>
                 <h4 class="fw-bold mb-3">{{ $gallery->name }}</h4>
                 <p class="opacity-75"><i class="bi bi-person me-2"></i> {{ $gallery->user->name ?? 'Cliente Desconhecido' }}</p>
                 <p class="opacity-75"><i class="bi bi-calendar me-2"></i> {{ $gallery->created_at->format('d/m/Y') }}</p>

@@ -15,7 +15,7 @@ class DashboardController extends Controller
         $client = Auth::user();
 
         $galleries = Gallery::where('user_id', $client->id)
-                            ->where('status', '!=', 'draft')
+                            ->where('status', '!=', \App\Enums\GalleryStatusEnum::DRAFT)
                             ->withCount('photos')
                             ->latest()
                             ->get();
