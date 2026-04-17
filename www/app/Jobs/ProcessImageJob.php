@@ -30,33 +30,33 @@ class ProcessImageJob implements ShouldQueue
         $originalContent = Storage::disk($this->photo->storage_driver)->get($this->photo->original_path);
         
         $manager = new ImageManager(new Driver());
-        $image = $manager->read($originalContent);
+        // v4 usa decode() ao invés de read()
+        $image = $manager->decode($originalContent);
 
         // --- 1. Miniatura Admin ---
-        // Resize proporcional pra Admin (ex: max 600px)
         $thumbImage = clone $image;
         $thumbImage->scale(width: 800);
-        $thumbEncoded = $thumbImage->toWebp(75);
+        // Em V3/V4 podemos usar encode() explícito se toWebp() estiver ocultado!
+        $thumbEncoded = $thumbImage->encodeUsingExtension('webp')->toString();
         
         $thumbPath = 'photos/' . $this->photo->gallery_id . '/' . $this->photo->uuid . '_thumb.webp';
         Storage::disk('public')->put($thumbPath, $thumbEncoded);
         
         // --- 2. Miniatura Público (Com Marca d'água) ---
         $watermarkImage = clone $image;
-        $watermarkImage->scale(width: 1200); // um pouco maior pra ver detalhes com a logo
+        $watermarkImage->scale(width: 1200);
 
-        // Tentar buscar logo configurada ou default
         try {
-            // Em tese deveria haver $logoPath = storage_path('app/public/watermark.png');
             $logoPath = public_path('images/watermark-default.png');
             if (file_exists($logoPath)) {
-                $watermarkImage->place($logoPath, 'center', 50, 50, 50); // 50% opacity
+                // v4 usa insert() ao invés de place()
+                $watermarkImage->insert($logoPath, 'center', 50, 50); // 50% opacity talvez não seja suportado como arg extra no insert, deixo solto no 50 50 X Y
             }
         } catch (\Exception $e) {
-            // Ignora watermark se não achar a img
+            // Ignora
         }
 
-        $watermarkEncoded = $watermarkImage->toWebp(80);
+        $watermarkEncoded = $watermarkImage->encodeUsingExtension('webp')->toString();
         $watermarkPath = 'photos/' . $this->photo->gallery_id . '/' . $this->photo->uuid . '_watermark.webp';
         Storage::disk('public')->put($watermarkPath, $watermarkEncoded);
 

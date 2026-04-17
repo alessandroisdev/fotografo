@@ -14,8 +14,13 @@ class PhotoController extends Controller
     public function store(Request $request, Gallery $gallery)
     {
         $request->validate([
-            'file' => 'required|image|mimes:jpeg,png,jpg,webp|max:512000', // max 500MB
+            'file' => 'required|file|max:512000', // max 500MB
         ]);
+
+        $ext = strtolower($request->file('file')->getClientOriginalExtension());
+        if (!in_array($ext, ['jpeg', 'png', 'jpg', 'webp', 'cr2', 'cr3', 'dng', 'arw', 'nef'])) {
+             return response()->json(['error' => 'Formato de imagem ou arquivo RAW não suportado.'], 422);
+        }
 
         $file = $request->file('file');
         
@@ -39,5 +44,27 @@ class PhotoController extends Controller
             'photo_id' => $photo->id,
             'uuid' => $photo->uuid
         ]);
+    }
+
+    public function poll(Request $request, Gallery $gallery)
+    {
+        $ids = $request->input('ids');
+        if (empty($ids) || !is_array($ids)) {
+            return response()->json([]);
+        }
+
+        $photos = Photo::where('gallery_id', $gallery->id)
+                       ->whereIn('id', $ids)
+                       ->where('status', 'ready')
+                       ->get();
+
+        return response()->json(
+            $photos->map(function ($photo) {
+                return [
+                    'id' => $photo->id,
+                    'thumbnail_url' => \Illuminate\Support\Facades\Storage::url($photo->thumbnail_path)
+                ];
+            })
+        );
     }
 }

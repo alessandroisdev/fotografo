@@ -48,7 +48,11 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // Admin CRUDs
     Route::resource('clients', ClientController::class);
     Route::resource('galleries', GalleryController::class);
+    
+    // Upload & Poll
     Route::post('galleries/{gallery}/photos', [PhotoController::class, 'store'])->name('galleries.photos.store');
+    Route::get('galleries/{gallery}/photos/poll', [PhotoController::class, 'poll'])->name('galleries.photos.poll');
+    
     Route::resource('packages', PackageController::class);
     Route::resource('orders', OrderController::class)->only(['index', 'update']);
 });

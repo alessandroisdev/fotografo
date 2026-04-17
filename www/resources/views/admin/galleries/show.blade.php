@@ -67,19 +67,21 @@
                 
                 <div class="row g-3" id="photo-grid">
                     @forelse($gallery->photos as $photo)
-                        <div class="col-6 col-md-3 col-lg-2 text-center" id="photo-{{ $photo->id }}">
-                            @if($photo->status == 'processing')
+                        @if($photo->status == 'processing')
+                            <div class="col-6 col-md-3 col-lg-2 text-center photo-processing" id="photo-{{ $photo->id }}" data-id="{{ $photo->id }}">
                                 <div class="bg-light rounded p-4 border text-muted d-flex align-items-center justify-content-center flex-column" style="height:150px;">
                                     <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
                                     <small class="fw-bold">Processando...</small>
                                 </div>
-                            @else
+                            </div>
+                        @else
+                            <div class="col-6 col-md-3 col-lg-2 text-center" id="photo-{{ $photo->id }}">
                                 <div class="position-relative">
                                     <img src="{{ Storage::url($photo->thumbnail_path) }}" class="img-fluid rounded border" alt="Thumbnail" style="height:150px; object-fit:cover; width:100%;">
                                     <span class="badge bg-success position-absolute bottom-0 start-0 m-1"><i class="bi bi-check-circle"></i></span>
                                 </div>
-                            @endif
-                        </div>
+                            </div>
+                        @endif
                     @empty
                         <div class="col-12 text-center py-4 text-muted">
                             Nenhuma foto enviada ainda.
@@ -95,8 +97,8 @@
 <script>
     Dropzone.options.massUploader = {
         maxFilesize: 500, // MB format
-        acceptedFiles: 'image/jpeg,image/png,image/jpg,image/webp',
-        dictDefaultMessage: "Arraste os arquivos aqui para upload",
+        acceptedFiles: 'image/jpeg,image/png,image/jpg,image/webp,.cr2,.cr3,.dng,.arw,.nef',
+        dictDefaultMessage: "Arraste os arquivos JPEG, WEBP ou RAW (.CR2, .CR3) aqui",
         success: function(file, response) {
             console.log("Uploaded successfully: ", response);
             // Poderíamos injetar a caixinha de spinner dinamicamente no DOM usando response.photo_id para visual instantâneo!
@@ -105,7 +107,7 @@
             if(emptyMsg) emptyMsg.remove();
             
             grid.insertAdjacentHTML('afterbegin', `
-                <div class="col-6 col-md-3 col-lg-2 text-center" id="photo-${response.photo_id}">
+                <div class="col-6 col-md-3 col-lg-2 text-center photo-processing" id="photo-${response.photo_id}" data-id="${response.photo_id}">
                     <div class="bg-light rounded p-4 border text-muted d-flex align-items-center justify-content-center flex-column" style="height:150px;">
                         <div class="spinner-grow spinner-grow-sm text-primary mb-2" role="status"></div>
                         <small class="fw-bold text-primary">NaFila...</small>
@@ -114,5 +116,34 @@
             `);
         }
     };
+
+    // AJAX Polling Simples para buscar dados do Redis Worker transparentemente
+    document.addEventListener('DOMContentLoaded', function() {
+        setInterval(function() {
+            let processingNodes = document.querySelectorAll('.photo-processing');
+            if (processingNodes.length === 0) return;
+
+            let ids = Array.from(processingNodes).map(node => node.dataset.id);
+            let params = new URLSearchParams();
+            ids.forEach(id => params.append('ids[]', id));
+
+            fetch(`{{ route('admin.galleries.photos.poll', $gallery->id) }}?`+params.toString())
+            .then(res => res.json())
+            .then(data => {
+                data.forEach(photo => {
+                    let node = document.getElementById(`photo-${photo.id}`);
+                    if(node) {
+                        node.innerHTML = `
+                            <div class="position-relative">
+                                <img src="${photo.thumbnail_url}" class="img-fluid rounded border" alt="Thumbnail" style="height:150px; object-fit:cover; width:100%;">
+                                <span class="badge bg-success position-absolute bottom-0 start-0 m-1"><i class="bi bi-check-circle"></i></span>
+                            </div>
+                        `;
+                        node.classList.remove('photo-processing');
+                    }
+                });
+            });
+        }, 3000); // 3 seconds scan
+    });
 </script>
 @endsection
