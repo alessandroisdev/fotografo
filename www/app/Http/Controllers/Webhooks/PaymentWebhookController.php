@@ -78,11 +78,18 @@ class PaymentWebhookController extends Controller
     {
         Log::info('Webhook MP Recebido:', $request->all());
 
-        // MercadoPago Webhooks variam, mas notificam pagamentos via "type" -> "payment" ou ação originada na URL
-        if ($request->input('type') === 'payment' || isset($request['data']['id'])) {
+        // Identifica Notificação IPN (topic) ou Webhook (type)
+        $typeOrTopic = $request->input('type') ?? $request->input('topic');
+
+        if ($typeOrTopic === 'payment' || isset($request['data']['id'])) {
+            // ID real enviado pelo MP
             $paymentId = $request->input('data.id') ?? $request->input('data')['id'] ?? $request->input('id');
 
-            // Chamada reversa de segurança: Pegamos os detalhes do Pagamento direto do Mercado Pago
+            if (!$paymentId) {
+                return response()->json(['status' => 'ignored', 'reason' => 'No Payment ID provided'], 200);
+            }
+
+            // Chamada reversa de segurança: Pegamos os detalhes diretamente na malha do Mercado Pago pra evitar spoofs
             $accessToken = config('settings.mercadopago_access_token', '');
             $response = \Illuminate\Support\Facades\Http::withHeaders([
                 'Authorization' => 'Bearer ' . $accessToken
@@ -96,8 +103,7 @@ class PaymentWebhookController extends Controller
                 if ($orderUuid) {
                     $order = Order::where('uuid', $orderUuid)->first();
                     if ($order) {
-                        // FUNDAMENTAL: O Checkout gravou a "Preference_id". O Webhook troca pelo "Payment_id" real numérico.
-                        // Sem isso, o admin nunca conseguirá apertar o botão [Estornar Fatura MP].
+                        // FUNDAMENTAL: O Webhook troca Preference_id pelo Payment_id real numérico
                         $order->update(['gateway_transaction_id' => $paymentId]);
 
                         if ($status === 'approved' && $order->status !== \App\Enums\OrderStatusEnum::PAID) {
@@ -105,9 +111,14 @@ class PaymentWebhookController extends Controller
                             Log::info("Pedido {$orderUuid} Pago via MP!");
                         } elseif (in_array($status, ['refunded', 'cancelled', 'rejected'])) {
                             $order->update(['status' => \App\Enums\OrderStatusEnum::CANCELLED]);
+                            Log::info("Pedido {$orderUuid} Cancelado/Rejeitado via MP.");
                         }
+                    } else {
+                         Log::warning("Mercado Pago Webhook: Pedido Origem Não Encontrado para UUID: {$orderUuid}");
                     }
                 }
+            } else {
+                 Log::error('Erro ao buscar dados do pagamento no MP.', ['res' => $response->json()]);
             }
         }
 
@@ -224,27 +235,39 @@ class PaymentWebhookController extends Controller
         $data = $request->input('data');
 
         if (in_array($type, ['charge.paid', 'order.paid'])) {
-            // Em PagarMe V5, webhook `charge.paid` envia a object charge.
-            // Para encontrar a order nossa usamos $data['order']['code'] ou $data['code']
+            // Em PagarMe V5, webhook envia o objeto root em $data.
             $orderUuid = $data['order']['code'] ?? $data['code'] ?? null;
-            $chargeId = $data['id'] ?? null; // ID verdadeiro de captura pra gente estornar depois
+            $chargeId = $data['id'] ?? null; 
 
-            if ($orderUuid) {
-                 $order = Order::where('uuid', $orderUuid)->first();
-                 if ($order && $order->status !== \App\Enums\OrderStatusEnum::PAID) {
-                     $order->update([
-                         'status' => \App\Enums\OrderStatusEnum::PAID,
-                         'paid_at' => now(),
-                         'gateway_transaction_id' => $chargeId 
-                     ]);
-                     Log::info("Pedido {$order->uuid} Pago via PagarMe Core V5!");
-                 }
+            // Se for PaymentLink, as vezes a order não possui code injetado, mas temos o ID na Order
+            $order = Order::where('uuid', $orderUuid)->first();
+
+            // Se não encontrou pelo UUID, pode ser Payment Link. No Link salvamos gateway_transaction_id = pl_xxx
+            if (!$order) {
+                // Se foi gerado por checkout direto o $data['id'] é ch_xxx. Se Payment Link será um link associado à charge
+                // Como não queremos confiar cegamente, podemos procurar por uma Order que bate ID e pendente. Pagar.me V5 pode retornar metadata.
+                $orderUuidMeta = $data['metadata']['uuid'] ?? null;
+                if ($orderUuidMeta) {
+                    $order = Order::where('uuid', $orderUuidMeta)->first();
+                }
+            }
+
+            if ($order && $order->status !== \App\Enums\OrderStatusEnum::PAID) {
+                // Ao pagar com sucesso, atualiza o chargeId para podermos estornar no futuro
+                $realChargeId = $data['last_transaction']['id'] ?? $chargeId;
+                
+                $order->update([
+                    'status' => \App\Enums\OrderStatusEnum::PAID,
+                    'paid_at' => now(),
+                    'gateway_transaction_id' => $realChargeId 
+                ]);
+                Log::info("Pedido {$order->uuid} Pago via PagarMe Core V5!");
+            } else {
+                Log::warning("Pagar.Me Webhook: Pedido não mapeado. Typo: {$type}");
             }
         } elseif (in_array($type, ['charge.refunded', 'order.canceled'])) {
-            // Se foi estornado
             $chargeId = $data['id'] ?? null;
             if ($chargeId) {
-                // Procuramos pela charge gravada anteriormente
                 $order = Order::where('gateway_transaction_id', $chargeId)->first();
                 if (!$order && isset($data['code'])) {
                      $order = Order::where('uuid', $data['code'])->first();
