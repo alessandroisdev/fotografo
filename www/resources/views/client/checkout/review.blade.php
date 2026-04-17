@@ -35,12 +35,25 @@
                     @endif
                 </ul>
                 
-                <div class="mt-auto">
-                    <h5 class="fw-bold text-success mb-3">Total Estimado: R$ {{ number_format($totalAmount, 2, ',', '.') }}</h5>
+                <div class="mt-auto text-start">
+                    <h5 class="fw-bold text-success mb-3 text-center">Total Estimado: R$ {{ number_format($totalAmount, 2, ',', '.') }}</h5>
                     <form action="{{ route('client.checkout.process', $gallery->uuid) }}" method="POST">
                         @csrf
                         <input type="hidden" name="package_id" value="{{ $package->id }}">
-                        <button type="submit" class="btn btn-primary w-100 fw-bold py-3 rounded-pill shadow">Confirmar Pacote Geral</button>
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold text-white mb-2 d-block">Como deseja pagar?</label>
+                            @foreach(\App\Enums\PaymentMethodEnum::cases() as $methodEnum)
+                                <div class="form-check mb-2 bg-dark p-2 rounded border border-secondary" style="--bs-border-opacity: .3;">
+                                    <input class="form-check-input ms-1" type="radio" name="payment_method" id="method_{{ $methodEnum->value }}_{{ $package->id }}" value="{{ $methodEnum->value }}" required>
+                                    <label class="form-check-label text-white ms-2" for="method_{{ $methodEnum->value }}_{{ $package->id }}">
+                                        {{ $methodEnum->label() }}
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100 fw-bold py-3 rounded-pill shadow">Confirmar Pacote e Pagar</button>
                     </form>
                 </div>
             </div>

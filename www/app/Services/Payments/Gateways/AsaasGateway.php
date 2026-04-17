@@ -13,8 +13,9 @@ class AsaasGateway implements PaymentGatewayInterface
     private string $baseUrl;
     private string $apiKey;
 
-    public function __construct(bool $isSandbox = false)
+    public function __construct()
     {
+        $isSandbox = config('settings.asaas_sandbox', true) == '1';
         $this->baseUrl = $isSandbox 
             ? 'https://sandbox.asaas.com/api/v3' 
             : 'https://api.asaas.com/v3';

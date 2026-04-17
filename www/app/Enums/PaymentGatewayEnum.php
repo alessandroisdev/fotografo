@@ -4,18 +4,22 @@ namespace App\Enums;
 
 enum PaymentGatewayEnum: string
 {
-    case ASAAS_PROD = 'asaas_prod';
-    case ASAAS_SANDBOX = 'asaas_sandbox';
-    case MANUAL_CASH = 'manual_cash';
-    case MANUAL_FREE = 'manual_free';
+    case ASAAS = 'asaas';
+    case MERCADO_PAGO = 'mercadopago';
+    case STRIPE = 'stripe';
+    case PAYPAL = 'paypal';
+    case PAGAR_ME = 'pagarme';
+    case MANUAL = 'manual';
 
     public function label(): string
     {
         return match($this) {
-            self::ASAAS_PROD => 'Asaas (Produção)',
-            self::ASAAS_SANDBOX => 'Asaas (Homologação)',
-            self::MANUAL_CASH => 'Manual (Dinheiro/PIX Físico)',
-            self::MANUAL_FREE => 'Isento (Cortesia Profissional)'
+            self::ASAAS => 'Asaas',
+            self::MERCADO_PAGO => 'Mercado Pago',
+            self::STRIPE => 'Stripe',
+            self::PAYPAL => 'PayPal',
+            self::PAGAR_ME => 'Pagar.Me',
+            self::MANUAL => 'Fechamento Manual (Admin)'
         };
     }
 }

@@ -40,27 +40,52 @@
                     </div>
                 </div>
 
-                <!-- PAYMENT -->
+                <!-- PAYMENT MULTIPLEXER -->
                 <div class="tab-pane fade p-4" id="payment">
-                    <h5 class="fw-bold mb-3"><i class="bi bi-bank2 text-success me-2"></i> Gestor Dinâmico de Gateway</h5>
+                    <h5 class="fw-bold mb-3"><i class="bi bi-diagram-3-fill text-success me-2"></i> Multiplexador de Gateways</h5>
                     <div class="alert alert-light border border-success border-opacity-25" role="alert">
-                        <i class="bi bi-shield-lock-fill text-success me-2"></i> O Checkout do cliente será processado através da classe específica gerada abaixo (Strategy Pattern).
+                        <i class="bi bi-shield-lock-fill text-success me-2"></i> Defina qual Instituição Financeira processará cada tipo de transação (PIX, Cartão e Boleto). O sistema roteará os pagamentos dos clientes magicamente.
                     </div>
 
-                    <div class="mb-4">
-                        <label class="form-label fw-bold">Selecione o Meio de Faturamento Ativo</label>
-                        <select name="active_gateway" class="form-select form-select-lg shadow-sm border-0 bg-light">
-                            @foreach(\App\Enums\PaymentGatewayEnum::cases() as $gatewayEnum)
-                                <option value="{{ $gatewayEnum->value }}" {{ config('settings.active_gateway') == $gatewayEnum->value ? 'selected' : '' }}>
-                                    {{ $gatewayEnum->label() }}
-                                </option>
-                            @endforeach
-                        </select>
+                    <div class="row g-4 mt-2">
+                        @foreach(\App\Enums\PaymentMethodEnum::cases() as $method)
+                            @if($method->value === 'manual_cash') @continue @endif
+                            <div class="col-md-4">
+                                <label class="form-label fw-bold text-primary">{{ $method->label() }} via:</label>
+                                <select name="gateway_{{ $method->value }}" class="form-select border-0 shadow-sm bg-light">
+                                    <option value="">-- Desativado --</option>
+                                    @foreach(\App\Enums\PaymentGatewayEnum::cases() as $gateway)
+                                        @if($gateway->value === 'manual') @continue @endif
+                                        <option value="{{ $gateway->value }}" {{ config('settings.gateway_' . $method->value) == $gateway->value ? 'selected' : '' }}>
+                                            {{ $gateway->label() }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endforeach
                     </div>
                     
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Asaas API Key (Token) <span class="text-muted fw-normal">- Apenas se selecionar Asaas acima</span></label>
-                        <input type="password" class="form-control bg-light" name="asaas_api_key" value="{{ config('settings.asaas_api_key') }}" placeholder="Ex: $aact_YTU5YTE0M2M... ">
+                    <hr class="mt-5 mb-4">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-key-fill text-secondary me-2"></i> Chaves Secretas Unificadas</h5>
+                    <p class="small text-muted mb-4">As chaves de API secretas das instituições financeiras configuradas acima.</p>
+
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Asaas | Access Token</label>
+                            <input type="password" class="form-control bg-light" name="asaas_api_key" value="{{ config('settings.asaas_api_key') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">MercadoPago | Access Token</label>
+                            <input type="password" class="form-control bg-light" name="mercadopago_token" value="{{ config('settings.mercadopago_token') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Stripe | Secret Key</label>
+                            <input type="password" class="form-control bg-light" name="stripe_key" value="{{ config('settings.stripe_key') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Pagar.Me | Secret Key</label>
+                            <input type="password" class="form-control bg-light" name="pagarme_key" value="{{ config('settings.pagarme_key') }}">
+                        </div>
                     </div>
                 </div>
 

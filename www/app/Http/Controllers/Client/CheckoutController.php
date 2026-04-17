@@ -36,8 +36,14 @@ class CheckoutController extends Controller
     public function process(Request $request, $uuid)
     {
         $request->validate([
-            'package_id' => 'required|exists:packages,id'
+            'package_id' => 'required|exists:packages,id',
+            'payment_method' => 'required|string'
         ]);
+
+        $paymentMethodEnum = \App\Enums\PaymentMethodEnum::tryFrom($request->payment_method);
+        if (!$paymentMethodEnum) {
+            return back()->with('error', 'Método de pagamento inválido.');
+        }
 
         $gallery = Gallery::where('uuid', $uuid)->firstOrFail();
         $photosArray = $request->session()->get('checkout_photos', []);
@@ -51,7 +57,7 @@ class CheckoutController extends Controller
         $extraPhotos = max(0, $totalSelected - $package->included_photos_count);
         $totalAmount = $package->price + ($extraPhotos * $package->extra_photo_price);
 
-        // Gera a Order
+        // Gera a Order com método embutido
         $order = Order::create([
             'uuid' => Str::uuid()->toString(),
             'user_id' => Auth::id(),
@@ -61,7 +67,8 @@ class CheckoutController extends Controller
             'included_photos' => min($totalSelected, $package->included_photos_count),
             'extra_photos' => $extraPhotos,
             'total_amount' => $totalAmount,
-            'status' => 'pending'
+            'status' => 'pending',
+            'gateway' => $paymentMethodEnum->value // Guarda se é PIX, Boleto ou Cartão
         ]);
 
         // Grava as OrderItems (As listagens de fotos prontas a serem destravadas)
@@ -76,8 +83,8 @@ class CheckoutController extends Controller
 
         $request->session()->forget('checkout_photos');
 
-        // Factory Pattern resolvendo Gateway definido no Painel Admin via BD
-        $gateway = \App\Services\Payments\PaymentGatewayFactory::resolve();
+        // Factory Pattern resolvendo Múltiplos Gateways via Enum Method
+        $gateway = \App\Services\Payments\PaymentGatewayFactory::resolve($paymentMethodEnum);
         $paymentResponse = $gateway->generateCharge($order);
 
         if (!$paymentResponse->success) {
@@ -86,7 +93,7 @@ class CheckoutController extends Controller
         }
 
         if ($paymentResponse->redirectUrl) {
-            // Redireciona para Plataforma Externa de Faturamento (Asaas)
+            // Redireciona para Plataforma Externa de Faturamento Mapeada (Asaas/Stripe/MercadoPago etc)
             return redirect($paymentResponse->redirectUrl);
         }
 

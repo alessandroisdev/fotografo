@@ -5,20 +5,33 @@ namespace App\Services\Payments;
 use App\Services\Payments\Contracts\PaymentGatewayInterface;
 use App\Services\Payments\Gateways\AsaasGateway;
 use App\Services\Payments\Gateways\ManualGateway;
+use App\Services\Payments\Gateways\MercadoPagoGateway;
+use App\Services\Payments\Gateways\StripeGateway;
+use App\Services\Payments\Gateways\PaypalGateway;
+use App\Services\Payments\Gateways\PagarMeGateway;
 use App\Enums\PaymentGatewayEnum;
+use App\Enums\PaymentMethodEnum;
 
 class PaymentGatewayFactory
 {
-    public static function resolve(): PaymentGatewayInterface
+    public static function resolve(PaymentMethodEnum $method): PaymentGatewayInterface
     {
-        $activeConfig = config('settings.active_gateway', PaymentGatewayEnum::MANUAL_CASH->value);
-        $gatewayName = PaymentGatewayEnum::tryFrom($activeConfig) ?? PaymentGatewayEnum::MANUAL_CASH;
+        // Se for dinheiro em maos, force Manual (mesmo que haja lixo no BD)
+        if ($method === PaymentMethodEnum::MANUAL_CASH) {
+            return new ManualGateway();
+        }
 
-        return match($gatewayName) {
-            PaymentGatewayEnum::ASAAS_PROD => new AsaasGateway(isSandbox: false),
-            PaymentGatewayEnum::ASAAS_SANDBOX => new AsaasGateway(isSandbox: true),
-            PaymentGatewayEnum::MANUAL_CASH => new ManualGateway(isFree: false),
-            PaymentGatewayEnum::MANUAL_FREE => new ManualGateway(isFree: true),
+        // Recuperar qual Gateway configurado pra esse método de pagamento via Tabela Dinamica
+        $activeConfig = config('settings.gateway_' . $method->value, PaymentGatewayEnum::MANUAL->value);
+        $gatewayEnum = PaymentGatewayEnum::tryFrom($activeConfig) ?? PaymentGatewayEnum::MANUAL;
+
+        return match($gatewayEnum) {
+            PaymentGatewayEnum::ASAAS => new AsaasGateway(),
+            PaymentGatewayEnum::MERCADO_PAGO => new MercadoPagoGateway(),
+            PaymentGatewayEnum::STRIPE => new StripeGateway(),
+            PaymentGatewayEnum::PAYPAL => new PaypalGateway(),
+            PaymentGatewayEnum::PAGAR_ME => new PagarMeGateway(),
+            PaymentGatewayEnum::MANUAL => new ManualGateway(),
         };
     }
 }
