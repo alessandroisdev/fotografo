@@ -87,6 +87,11 @@
             <h5 class="mb-0 fw-bold"><i class="bi bi-images text-secondary"></i> <span id="selectedCount">0</span> Fotos Selecionadas</h5>
         </div>
         <div>
+            <!-- Formulário Injetor oculto -->
+            <form id="checkoutForm" action="{{ route('client.checkout.review', $gallery->uuid) }}" method="POST" class="d-none">
+                @csrf
+                <input type="hidden" name="photo_ids" id="photo_ids_input" value="">
+            </form>
             <button class="btn btn-secondary px-4 fw-bold rounded-pill" onclick="checkout()"><i class="bi bi-cart-check"></i> Fechar Pacote</button>
         </div>
     </div>
@@ -96,6 +101,8 @@
     let selectedPhotos = new Set();
     const cartBar = document.getElementById('cartBar');
     const countDisplay = document.getElementById('selectedCount');
+    const checkoutForm = document.getElementById('checkoutForm');
+    const idsInput = document.getElementById('photo_ids_input');
 
     function toggleSelection(element) {
         const id = element.getAttribute('data-id');
@@ -123,8 +130,8 @@
     
     function checkout() {
         let photosArray = Array.from(selectedPhotos);
-        console.log("Proceeding to checkout with IDs: ", photosArray);
-        alert("Carrinho ativado para " + photosArray.length + " fotos! Na próxima aula, unimos isto às tabelas Orders e Packages \ud83d\ude80");
+        idsInput.value = photosArray.join(',');
+        checkoutForm.submit();
     }
 </script>
 @endsection

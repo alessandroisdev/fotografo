@@ -1,0 +1,64 @@
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\Order;
+use Yajra\DataTables\DataTables;
+
+class OrderController extends Controller
+{
+    public function index(Request $request)
+    {
+        if ($request->ajax()) {
+            $data = Order::with(['user', 'package', 'gallery'])->select('orders.*');
+            return Datatables::of($data)
+                    ->addColumn('client_name', function($row){
+                         return $row->user->name;
+                    })
+                    ->addColumn('package_name', function($row){
+                         return $row->package->name ?? 'Avulso';
+                    })
+                    ->editColumn('total_amount', function($row){
+                         return 'R$ ' . number_format($row->total_amount, 2, ',', '.');
+                    })
+                    ->editColumn('status', function($row) {
+                         if($row->status == 'paid') return '<span class="badge bg-success">Pago</span>';
+                         if($row->status == 'cancelled') return '<span class="badge bg-danger">Cancelado</span>';
+                         return '<span class="badge bg-warning text-dark">Pendente</span>';
+                    })
+                    ->addColumn('action', function($row){
+                         $btn = '';
+                         if($row->status == 'pending') {
+                             $btn .= '<form action="'.route('admin.orders.update', $row->id).'" method="POST" class="d-inline">
+                                      '.csrf_field().method_field('PATCH').'
+                                      <input type="hidden" name="status" value="paid">
+                                      <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-circle"></i> Aprovar</button>
+                                      </form>';
+                         }
+                         return $btn;
+                    })
+                    ->rawColumns(['status', 'action'])
+                    ->make(true);
+        }
+        
+        return view('admin.orders.index');
+    }
+
+    public function update(Request $request, Order $order)
+    {
+        $validated = $request->validate([
+            'status' => 'required|in:pending,paid,cancelled'
+        ]);
+
+        $order->update([
+            'status' => $validated['status'],
+            'paid_at' => $validated['status'] == 'paid' ? now() : null
+        ]);
+        
+        // Aqui também poderíamos disparar um Job (e.g. LiberarArquivosJob) para mover eles do S3 privado para um link exposto.
+
+        return redirect()->route('admin.orders.index')->with('success', 'Status da Fatura modificado!');
+    }
+}

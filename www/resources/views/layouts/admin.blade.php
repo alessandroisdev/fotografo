@@ -30,6 +30,7 @@
             <a class="list-group-item list-group-item-action list-group-item-light p-3 border-0" href="/admin/clients"><i class="bi bi-people me-2"></i> Clientes</a>
             <a class="list-group-item list-group-item-action list-group-item-light p-3 border-0" href="/admin/galleries"><i class="bi bi-images me-2"></i> Galerias</a>
             <a class="list-group-item list-group-item-action list-group-item-light p-3 border-0" href="/admin/packages"><i class="bi bi-box-seam me-2"></i> Pacotes</a>
+            <a class="list-group-item list-group-item-action list-group-item-light p-3 border-0" href="/admin/orders"><i class="bi bi-cart3 me-2"></i> Vendas / Pedidos</a>
             <a class="list-group-item list-group-item-action list-group-item-light p-3 border-0" href="/admin/settings"><i class="bi bi-gear me-2"></i> Configurações</a>
             <a class="list-group-item list-group-item-action list-group-item-light p-3 border-0 text-danger mt-4" href="/logout"><i class="bi bi-box-arrow-left me-2"></i> Sair</a>
         </div>

@@ -37,15 +37,24 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // Packages CRUD
     use App\Http\Controllers\Admin\PackageController;
     Route::resource('packages', PackageController::class);
+    
+    // Orders / Faturas Management
+    use App\Http\Controllers\Admin\OrderController;
+    Route::resource('orders', OrderController::class)->only(['index', 'update']);
 });
 
 // Client Area Protected
 use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Client\GalleryController as ClientGalleryController;
+use App\Http\Controllers\Client\CheckoutController as ClientCheckoutController;
 
 Route::get('/client', function() { return redirect()->route('client.dashboard'); })->middleware('auth');
 
 Route::middleware(['auth'])->prefix('client')->name('client.')->group(function () {
     Route::get('/dashboard', [ClientDashboardController::class, 'index'])->name('dashboard');
     Route::get('/gallery/{uuid}', [ClientGalleryController::class, 'show'])->name('galleries.show');
+    
+    // Checkout Flow
+    Route::post('/gallery/{uuid}/checkout', [ClientCheckoutController::class, 'review'])->name('checkout.review');
+    Route::post('/gallery/{uuid}/order', [ClientCheckoutController::class, 'process'])->name('checkout.process');
 });
