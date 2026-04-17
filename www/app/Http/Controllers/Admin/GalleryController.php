@@ -63,4 +63,24 @@ class GalleryController extends Controller
         }]);
         return view('admin.galleries.show', compact('gallery'));
     }
+
+    public function edit(Gallery $gallery)
+    {
+        $clients = User::where('role', 'client')->get();
+        return view('admin.galleries.edit', compact('gallery', 'clients'));
+    }
+
+    public function update(Request $request, Gallery $gallery)
+    {
+        $validated = $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'status' => 'required|in:draft,published,archived'
+        ]);
+
+        $gallery->update($validated);
+
+        return redirect()->route('admin.galleries.show', $gallery->id)->with('success', 'Configurações e Público-Alvo atualizados!');
+    }
 }

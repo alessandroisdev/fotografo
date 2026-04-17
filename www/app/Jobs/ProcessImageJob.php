@@ -37,8 +37,8 @@ class ProcessImageJob implements ShouldQueue
         $thumbImage = clone $image;
         // Na UI Administrativa, as colunas rendem no máximo ~300px de largura e 150px de altura. ScaleDown salva processamento preservando memória na escala
         $thumbImage->scaleDown(width: 350);
-        // Codificação WEBP ultra-leve mantendo 80% de qualidade visual
-        $thumbEncoded = $thumbImage->toWebp(80)->toString();
+        // Codificação WEBP usando a API V4 nativa
+        $thumbEncoded = $thumbImage->encode(new \Intervention\Image\Encoders\WebpEncoder(80))->toString();
         
         $thumbPath = 'photos/' . $this->photo->gallery_id . '/' . $this->photo->uuid . '_thumb.webp';
         Storage::disk('public')->put($thumbPath, $thumbEncoded);
@@ -51,14 +51,13 @@ class ProcessImageJob implements ShouldQueue
         try {
             $logoPath = public_path('images/watermark-default.png');
             if (file_exists($logoPath)) {
-                // v4 usa insert() ao invés de place()
                 $watermarkImage->insert($logoPath, 'center', 50, 50);
             }
         } catch (\Exception $e) {
             // Ignora
         }
 
-        $watermarkEncoded = $watermarkImage->toWebp(85)->toString();
+        $watermarkEncoded = $watermarkImage->encode(new \Intervention\Image\Encoders\WebpEncoder(85))->toString();
         $watermarkPath = 'photos/' . $this->photo->gallery_id . '/' . $this->photo->uuid . '_watermark.webp';
         Storage::disk('public')->put($watermarkPath, $watermarkEncoded);
 
