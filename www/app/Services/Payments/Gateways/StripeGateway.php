@@ -9,6 +9,17 @@ use Illuminate\Support\Facades\Log;
 
 class StripeGateway implements PaymentGatewayInterface
 {
+    private bool $isSandbox;
+    private string $publishableKey;
+    private string $secretKey;
+
+    public function __construct()
+    {
+        $this->isSandbox = config('settings.stripe_environment', 'sandbox') !== 'production';
+        $this->publishableKey = config('settings.stripe_publishable_key', '');
+        $this->secretKey = config('settings.stripe_secret_key', '');
+    }
+
     public function generateCharge(Order $order): PaymentResponse
     {
         try {

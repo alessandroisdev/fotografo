@@ -9,6 +9,17 @@ use Illuminate\Support\Facades\Log;
 
 class MercadoPagoGateway implements PaymentGatewayInterface
 {
+    private bool $isSandbox;
+    private string $publicKey;
+    private string $accessToken;
+
+    public function __construct()
+    {
+        $this->isSandbox = config('settings.mercadopago_environment', 'sandbox') !== 'production';
+        $this->publicKey = config('settings.mercadopago_public_key', '');
+        $this->accessToken = config('settings.mercadopago_access_token', '');
+    }
+
     public function generateCharge(Order $order): PaymentResponse
     {
         try {

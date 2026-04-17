@@ -9,6 +9,20 @@ use Illuminate\Support\Facades\Log;
 
 class PaypalGateway implements PaymentGatewayInterface
 {
+    private bool $isSandbox;
+    private string $clientId;
+    private string $clientSecret;
+    private string $baseUrl;
+
+    public function __construct()
+    {
+        $this->isSandbox = config('settings.paypal_environment', 'sandbox') !== 'production';
+        $this->clientId = config('settings.paypal_client_id', '');
+        $this->clientSecret = config('settings.paypal_secret', '');
+        
+        $this->baseUrl = $this->isSandbox ? 'https://api-m.sandbox.paypal.com' : 'https://api-m.paypal.com';
+    }
+
     public function generateCharge(Order $order): PaymentResponse
     {
         try {

@@ -9,6 +9,15 @@ use Illuminate\Support\Facades\Log;
 
 class PagarMeGateway implements PaymentGatewayInterface
 {
+    private bool $isSandbox;
+    private string $apiKey;
+
+    public function __construct()
+    {
+        $this->isSandbox = config('settings.pagarme_environment', 'sandbox') !== 'production';
+        $this->apiKey = config('settings.pagarme_api_key', '');
+    }
+
     public function generateCharge(Order $order): PaymentResponse
     {
         try {

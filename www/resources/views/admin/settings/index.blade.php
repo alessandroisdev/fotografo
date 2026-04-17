@@ -65,27 +65,150 @@
                         @endforeach
                     </div>
                     
-                    <hr class="mt-5 mb-4">
-                    <h5 class="fw-bold mb-3"><i class="bi bi-key-fill text-secondary me-2"></i> Chaves Secretas Unificadas</h5>
-                    <p class="small text-muted mb-4">As chaves de API secretas das instituições financeiras configuradas acima.</p>
+                    <hr class="mt-5 mb-4 border-secondary">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-key-fill text-secondary me-2"></i> Credenciais e Isolamento de Ambiente (Sandbox / Produção)</h5>
+                    <p class="small text-muted mb-4">A segurança de rotas é feita isoladamente. Você pode manter o Paypal de testes enquanto assina cartões reais pelo Stripe simultaneamente.</p>
 
-                    <div class="row g-4">
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Asaas | Access Token</label>
-                            <input type="password" class="form-control bg-light" name="asaas_api_key" value="{{ config('settings.asaas_api_key') }}">
+                    <div class="accordion shadow-sm" id="accordionGateways">
+                        
+                        <!-- ASAAS -->
+                        <div class="accordion-item border-0 mb-3 bg-light rounded">
+                            <h2 class="accordion-header">
+                            <button class="accordion-button collapsed rounded fw-bold text-dark border" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAsaas">
+                                <i class="bi bi-bank me-2 text-primary"></i> Asaas Gateway
+                            </button>
+                            </h2>
+                            <div id="collapseAsaas" class="accordion-collapse collapse" data-bs-parent="#accordionGateways">
+                            <div class="accordion-body bg-white border border-top-0 rounded-bottom">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Ambiente de Execução</label>
+                                    <select name="asaas_environment" class="form-select bg-light">
+                                        <option value="sandbox" {{ config('settings.asaas_environment') !== 'production' ? 'selected' : '' }}>Homologação (Sandbox)</option>
+                                        <option value="production" {{ config('settings.asaas_environment') === 'production' ? 'selected' : '' }}>Produção (Valendo Dinheiro Real)</option>
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fw-bold">API Key (Access Token)</label>
+                                    <input type="password" class="form-control bg-light" name="asaas_api_key" value="{{ config('settings.asaas_api_key') }}" placeholder="$aact_...">
+                                </div>
+                            </div>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">MercadoPago | Access Token</label>
-                            <input type="password" class="form-control bg-light" name="mercadopago_token" value="{{ config('settings.mercadopago_token') }}">
+
+                        <!-- MERCADO PAGO -->
+                        <div class="accordion-item border-0 mb-3 bg-light rounded">
+                            <h2 class="accordion-header">
+                            <button class="accordion-button collapsed rounded fw-bold text-dark border" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMP">
+                                <i class="bi bi-bag-check me-2 text-info"></i> Mercado Pago
+                            </button>
+                            </h2>
+                            <div id="collapseMP" class="accordion-collapse collapse" data-bs-parent="#accordionGateways">
+                            <div class="accordion-body bg-white border border-top-0 rounded-bottom">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Ambiente de Execução</label>
+                                    <select name="mercadopago_environment" class="form-select bg-light">
+                                        <option value="sandbox" {{ config('settings.mercadopago_environment') !== 'production' ? 'selected' : '' }}>Homologação (Testes)</option>
+                                        <option value="production" {{ config('settings.mercadopago_environment') === 'production' ? 'selected' : '' }}>Produção Oficial</option>
+                                    </select>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label fw-bold">Public Key (Frontend)</label>
+                                        <input type="password" class="form-control bg-light" name="mercadopago_public_key" value="{{ config('settings.mercadopago_public_key') }}" placeholder="TEST-xxxx...">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label fw-bold">Access Token (Backend)</label>
+                                        <input type="password" class="form-control bg-light" name="mercadopago_access_token" value="{{ config('settings.mercadopago_access_token') }}" placeholder="TEST-0000...">
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Stripe | Secret Key</label>
-                            <input type="password" class="form-control bg-light" name="stripe_key" value="{{ config('settings.stripe_key') }}">
+
+                        <!-- STRIPE -->
+                        <div class="accordion-item border-0 mb-3 bg-light rounded">
+                            <h2 class="accordion-header">
+                            <button class="accordion-button collapsed rounded fw-bold text-dark border" type="button" data-bs-toggle="collapse" data-bs-target="#collapseStripe">
+                                <i class="bi bi-credit-card-2-front me-2 text-primary"></i> Stripe Global
+                            </button>
+                            </h2>
+                            <div id="collapseStripe" class="accordion-collapse collapse" data-bs-parent="#accordionGateways">
+                            <div class="accordion-body bg-white border border-top-0 rounded-bottom">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Ambiente de Execução</label>
+                                    <select name="stripe_environment" class="form-select bg-light">
+                                        <option value="sandbox" {{ config('settings.stripe_environment') !== 'production' ? 'selected' : '' }}>Modo Teste (Test Mode)</option>
+                                        <option value="production" {{ config('settings.stripe_environment') === 'production' ? 'selected' : '' }}>Modo Produção</option>
+                                    </select>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label fw-bold">Publishable Key</label>
+                                        <input type="password" class="form-control bg-light" name="stripe_publishable_key" value="{{ config('settings.stripe_publishable_key') }}" placeholder="pk_test_...">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label fw-bold">Secret Key</label>
+                                        <input type="password" class="form-control bg-light" name="stripe_secret_key" value="{{ config('settings.stripe_secret_key') }}" placeholder="sk_test_...">
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Pagar.Me | Secret Key</label>
-                            <input type="password" class="form-control bg-light" name="pagarme_key" value="{{ config('settings.pagarme_key') }}">
+
+                        <!-- PAYPAL -->
+                        <div class="accordion-item border-0 mb-3 bg-light rounded">
+                            <h2 class="accordion-header">
+                            <button class="accordion-button collapsed rounded fw-bold text-dark border" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePaypal">
+                                <i class="bi bi-paypal me-2 text-primary"></i> PayPal Business
+                            </button>
+                            </h2>
+                            <div id="collapsePaypal" class="accordion-collapse collapse" data-bs-parent="#accordionGateways">
+                            <div class="accordion-body bg-white border border-top-0 rounded-bottom">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Ambiente de Operação</label>
+                                    <select name="paypal_environment" class="form-select bg-light">
+                                        <option value="sandbox" {{ config('settings.paypal_environment') !== 'production' ? 'selected' : '' }}>Ambiente Sandbox (Mock)</option>
+                                        <option value="production" {{ config('settings.paypal_environment') === 'production' ? 'selected' : '' }}>Ambiente Live Oficial</option>
+                                    </select>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label fw-bold">REST Oauth Client ID</label>
+                                        <input type="password" class="form-control bg-light" name="paypal_client_id" value="{{ config('settings.paypal_client_id') }}">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label class="form-label fw-bold">REST Oauth Secret</label>
+                                        <input type="password" class="form-control bg-light" name="paypal_secret" value="{{ config('settings.paypal_secret') }}">
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
                         </div>
+
+                        <!-- PAGAR ME -->
+                        <div class="accordion-item border-0 mb-3 bg-light rounded">
+                            <h2 class="accordion-header">
+                            <button class="accordion-button collapsed rounded fw-bold text-dark border" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePagarme">
+                                <i class="bi bi-wallet2 me-2 text-success"></i> Pagar.Me
+                            </button>
+                            </h2>
+                            <div id="collapsePagarme" class="accordion-collapse collapse" data-bs-parent="#accordionGateways">
+                            <div class="accordion-body bg-white border border-top-0 rounded-bottom">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Ambiente</label>
+                                    <select name="pagarme_environment" class="form-select bg-light">
+                                        <option value="sandbox" {{ config('settings.pagarme_environment') !== 'production' ? 'selected' : '' }}>Testes</option>
+                                        <option value="production" {{ config('settings.pagarme_environment') === 'production' ? 'selected' : '' }}>Produção</option>
+                                    </select>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label fw-bold">API Secret Key</label>
+                                    <input type="password" class="form-control bg-light" name="pagarme_api_key" value="{{ config('settings.pagarme_api_key') }}" placeholder="sk_test_...">
+                                </div>
+                            </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
