@@ -119,17 +119,37 @@
         });
 
         // Add loading states to all forms automatically
-        document.querySelectorAll('form').forEach(form => {
-            // Ignore Dropzone which handles asynchronously
+        document.body.addEventListener('submit', function(e) {
+            let form = e.target;
+            if(!form || form.tagName !== 'FORM') return;
+            
+            // Ignorar Dropzone
             if(form.classList.contains('dropzone')) return;
 
-            form.addEventListener('submit', function() {
-                let btn = form.querySelector('button[type="submit"]');
-                if(btn && !btn.classList.contains('disabled')) {
-                    btn.classList.add('disabled');
-                    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processando...`;
-                }
-            });
+            // Global Data Confirm Interceptor using Bootstrap Modal
+            if(form.hasAttribute('data-confirm')) {
+                e.preventDefault();
+                let message = form.getAttribute('data-confirm');
+                
+                window.askConfirm('<i class="bi bi-exclamation-octagon-fill text-danger me-2"></i> Verificação Necessária', message, function() {
+                    form.removeAttribute('data-confirm'); // Evita loop infinito
+                    let btn = form.querySelector('button[type="submit"]');
+                    if(btn && !btn.classList.contains('disabled')) {
+                        btn.classList.add('disabled');
+                        let originalHtml = btn.innerHTML;
+                        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>`;
+                    }
+                    form.submit();
+                });
+                return; // Bloqueado, aguardando callback
+            }
+
+            // Ação Padrão para forms normais
+            let btn = form.querySelector('button[type="submit"]');
+            if(btn && !btn.classList.contains('disabled')) {
+                btn.classList.add('disabled');
+                btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processando...`;
+            }
         });
     });
 

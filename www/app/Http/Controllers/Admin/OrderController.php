@@ -43,7 +43,7 @@ class OrderController extends Controller
                                       <input type="hidden" name="status" value="'.\App\Enums\OrderStatusEnum::PENDING->value.'">
                                       <button type="submit" class="btn btn-warning btn-sm me-1" title="Estornar para Pendente (Manual)"><i class="bi bi-arrow-counterclockwise"></i></button>
                                       </form>';
-                             $btn .= '<form action="'.route('admin.orders.update', $row->id).'" method="POST" class="d-inline" onsubmit="return confirm(\'Isso acionará estorno no Gateway se aplicável (Ex: PIX Asaas). Continuar?\');">
+                             $btn .= '<form action="'.route('admin.orders.update', $row->id).'" method="POST" class="d-inline" data-confirm="Isso acionará estorno no Gateway se aplicável (Ex: PIX Asaas). Continuar?">
                                       '.csrf_field().method_field('PATCH').'
                                       <input type="hidden" name="status" value="'.\App\Enums\OrderStatusEnum::CANCELLED->value.'">
                                       <button type="submit" class="btn btn-danger btn-sm me-1" title="Cancelar Venda e Estornar"><i class="bi bi-x-octagon"></i></button>

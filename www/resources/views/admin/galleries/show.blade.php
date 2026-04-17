@@ -83,7 +83,7 @@
                                     </a>
                                     <span class="badge bg-success position-absolute bottom-0 start-0 m-1 shadow"><i class="bi bi-check-circle"></i></span>
                                     
-                                    <form action="{{ route('admin.galleries.photos.destroy', [$gallery->id, $photo->id]) }}" method="POST" class="position-absolute top-0 end-0 m-1" onsubmit="return confirm('Deseja excluir esta foto definitivamente do servidor?');">
+                                    <form action="{{ route('admin.galleries.photos.destroy', [$gallery->id, $photo->id]) }}" method="POST" class="position-absolute top-0 end-0 m-1" data-confirm="Deseja excluir esta foto definitivamente do servidor?">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-danger rounded-circle shadow opacity-75 hover-opacity-100" style="padding: 0.25rem 0.4rem;">
