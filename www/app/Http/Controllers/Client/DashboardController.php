@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Client;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use App\Models\Gallery;
 use App\Models\User;
 
@@ -11,12 +12,7 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        // Simulando Cliente Logado
-        $client = User::where('role', 'client')->first();
-        
-        if(!$client) {
-            return redirect('/')->with('error', 'Nenhum cliente cadastrado no sistema para simular a área.');
-        }
+        $client = Auth::user();
 
         $galleries = Gallery::where('user_id', $client->id)
                             ->where('status', '!=', 'draft')

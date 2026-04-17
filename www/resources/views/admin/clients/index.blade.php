@@ -44,12 +44,20 @@
         });
     });
     
-    // Função global p/ deletar
+    // Função global p/ deletar usando o Modal do Bootstrap!
     window.deleteClient = function(id) {
-        if(confirm("Tem certeza que deseja apagar este cliente? A conta será desativada mas dados atrelados serão retidos.")) {
-            // Lógica Ajax destroy virá aqui, por enquanto console.log
-            console.log("Deletar ID: ", id);
-        }
+        window.askConfirm(
+            '<i class="bi bi-trash-fill me-2"></i> Deletar Cliente', 
+            'Tem certeza que deseja apagar este cliente permanentemente? A conta será desativada mas os dados isolados serão retidos no banco se houver galerias.',
+            function() {
+                // Lógica de Submissão Delete passaria aqui (Ex: Formulário Oculto)
+                console.log("Deletar ID Concluído pelo Modal: ", id);
+                
+                // MOCKUP Feedback Toast:
+                // Criar formulário programaticamente, injetar DELETE token, e dar submit.
+                // Mas por enquanto vamos apenas mostrar no console durante o test.
+            }
+        );
     }
 </script>
 @endsection

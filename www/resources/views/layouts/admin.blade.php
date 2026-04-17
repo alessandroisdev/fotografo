@@ -58,9 +58,93 @@
     <!-- /#page-content-wrapper -->
 </div>
 
+<!-- Global Confirmation Modal -->
+<div class="modal fade" id="globalConfirmModal" tabindex="-1" aria-labelledby="globalConfirmModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold text-danger" id="globalConfirmModalLabel"><i class="bi bi-exclamation-triangle-fill me-2"></i>Atenção</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-secondary" id="globalConfirmModalBody">
+         Deseja realmente prosseguir com esta ação?
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger rounded-pill px-4" id="globalConfirmModalBtn">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Global Toasts Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-4" style="z-index: 1060">
+    @foreach (['success', 'danger', 'warning', 'info'] as $msg)
+        @if(Session::has($msg) || ($msg == 'danger' && Session::has('error')))
+            <div class="toast align-items-center text-bg-{{ $msg == 'error' ? 'danger' : $msg }} border-0 mb-2 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
+                <div class="d-flex">
+                    <div class="toast-body fw-semibold">
+                        @if($msg == 'success') <i class="bi bi-check-circle-fill me-2"></i> @endif
+                        @if($msg == 'danger' || $msg == 'error') <i class="bi bi-x-circle-fill me-2"></i> @endif
+                        @if($msg == 'warning') <i class="bi bi-exclamation-circle-fill me-2"></i> @endif
+                        {{ Session::get($msg) ?? Session::get('error') }}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        @endif
+    @endforeach
+</div>
+
 <!-- Bootstrap JS & jQuery (needed for DataTables) -->
 <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Global Script Overrides -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Init Toasts natively
+        var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+        var toastList = toastElList.map(function (toastEl) {
+          var t = new bootstrap.Toast(toastEl, { autohide: true });
+          t.show();
+          return t;
+        });
+
+        // Add loading states to all forms automatically
+        document.querySelectorAll('form').forEach(form => {
+            // Ignore Dropzone which handles asynchronously
+            if(form.classList.contains('dropzone')) return;
+
+            form.addEventListener('submit', function() {
+                let btn = form.querySelector('button[type="submit"]');
+                if(btn && !btn.classList.contains('disabled')) {
+                    btn.classList.add('disabled');
+                    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processando...`;
+                }
+            });
+        });
+    });
+
+    // Global Confirm Abstraction
+    window.askConfirm = function(title, text, callback) {
+        document.getElementById('globalConfirmModalLabel').innerHTML = title;
+        document.getElementById('globalConfirmModalBody').innerHTML = text;
+        
+        let confirmModal = new bootstrap.Modal(document.getElementById('globalConfirmModal'));
+        
+        let confirmBtn = document.getElementById('globalConfirmModalBtn');
+        let newBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+        
+        newBtn.addEventListener('click', function() {
+            confirmModal.hide();
+            callback();
+        });
+        
+        confirmModal.show();
+    };
+</script>
 
 </body>
 </html>

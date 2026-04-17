@@ -68,6 +68,44 @@
     </footer>
 
     <!-- Bootstrap JS Bundle -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Global Toasts Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-4" style="z-index: 1060">
+    @foreach (['success', 'danger', 'warning', 'info'] as $msg)
+        @if(Session::has($msg) || ($msg == 'danger' && Session::has('error')))
+            <div class="toast align-items-center text-bg-{{ $msg == 'error' ? 'danger' : $msg }} border-0 mb-2 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="4000">
+                <div class="d-flex">
+                    <div class="toast-body fw-semibold">
+                        @if($msg == 'success') <i class="bi bi-check-circle-fill me-2"></i> @endif
+                        @if($msg == 'danger' || $msg == 'error') <i class="bi bi-x-circle-fill me-2"></i> @endif
+                        @if($msg == 'warning') <i class="bi bi-exclamation-circle-fill me-2"></i> @endif
+                        {{ Session::get($msg) ?? Session::get('error') }}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        @endif
+    @endforeach
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+        toastElList.map(function (toastEl) {
+          return new bootstrap.Toast(toastEl, { autohide: true }).show();
+        });
+        
+        // Add loading states to forms
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', function() {
+                let btn = form.querySelector('button[type="submit"]');
+                if(btn && !btn.classList.contains('disabled')) {
+                    btn.classList.add('disabled');
+                    btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Processando...`;
+                }
+            });
+        });
+    });
+</script>
 </body>
 </html>
