@@ -91,34 +91,6 @@
                                  <button type="button" class="btn btn-outline-warning rounded-pill fw-bold" data-bs-toggle="modal" data-bs-target="#retryModal-{{ $order->uuid }}">
                                      <i class="bi bi-arrow-repeat me-2"></i> Falhou? Retentar Pgto
                                  </button>
-
-                                 <!-- Modal Retry Payment -->
-                                 <div class="modal fade" id="retryModal-{{ $order->uuid }}" tabindex="-1" aria-hidden="true" data-bs-theme="dark">
-                                     <div class="modal-dialog modal-dialog-centered">
-                                         <form action="{{ route('client.checkout.retry', $order->uuid) }}" method="POST" class="modal-content bg-dark border-secondary">
-                                             @csrf
-                                             <div class="modal-header border-bottom border-secondary">
-                                                 <h5 class="modal-title fw-bold text-white"><i class="bi bi-wallet2 me-2"></i> Retentar Pedido #{{ substr($order->uuid, 0, 8) }}</h5>
-                                                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                                             </div>
-                                             <div class="modal-body text-start text-white">
-                                                <p class="small text-white-50 mb-4">Caso o pagamento anterior tenha falhado ou a janela tenha se fechado, escolha um novo meio abaixo para gerar uma nova cobrança instantânea.</p>
-                                                
-                                                <label class="form-label text-white-50">Meio de Pagamento</label>
-                                                <select name="payment_method" class="form-select bg-dark text-white border-secondary fw-bold" required>
-                                                    <option value="">Escolha a forma de pagamento...</option>
-                                                    <option value="pix">PIX (Imediato)</option>
-                                                    <option value="credit_card">Cartão de Crédito</option>
-                                                    <option value="bank_slip">Boleto Bancário</option>
-                                                </select>
-                                             </div>
-                                             <div class="modal-footer border-top border-secondary">
-                                                 <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
-                                                 <button type="submit" class="btn btn-primary rounded-pill fw-bold px-4"><i class="bi bi-check-circle me-1"></i> Gerar Pagamento</button>
-                                             </div>
-                                         </form>
-                                     </div>
-                                 </div>
                              @endif
                         </div>
                     </div>
@@ -134,4 +106,37 @@
         </div>
     </div>
 </div>
+
+<!-- Modals Isolados no Root para Evitar Z-Index Trap -->
+@foreach($orders as $order)
+    @if($order->status === \App\Enums\OrderStatusEnum::PENDING)
+    <div class="modal fade" id="retryModal-{{ $order->uuid }}" tabindex="-1" aria-hidden="true" data-bs-theme="dark">
+        <div class="modal-dialog modal-dialog-centered">
+            <form action="{{ route('client.checkout.retry', $order->uuid) }}" method="POST" class="modal-content bg-dark border-secondary">
+                @csrf
+                <div class="modal-header border-bottom border-secondary">
+                    <h5 class="modal-title fw-bold text-white"><i class="bi bi-wallet2 me-2"></i> Retentar Pedido #{{ substr($order->uuid, 0, 8) }}</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-start text-white">
+                    <p class="small text-white-50 mb-4">Caso o pagamento anterior tenha falhado ou a janela tenha se fechado, escolha um novo meio abaixo para gerar uma nova cobrança instantânea.</p>
+                    
+                    <label class="form-label text-white-50">Meio de Pagamento</label>
+                    <select name="payment_method" class="form-select bg-dark text-white border-secondary fw-bold" required>
+                        <option value="">Escolha a forma de pagamento...</option>
+                        <option value="pix">PIX (Imediato)</option>
+                        <option value="credit_card">Cartão de Crédito</option>
+                        <option value="bank_slip">Boleto Bancário</option>
+                    </select>
+                </div>
+                <div class="modal-footer border-top border-secondary">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill fw-bold px-4"><i class="bi bi-check-circle me-1"></i> Gerar Pagamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    @endif
+@endforeach
+
 @endsection
