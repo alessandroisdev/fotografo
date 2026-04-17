@@ -51,7 +51,7 @@ class ProcessImageJob implements ShouldQueue
         try {
             $logoPath = public_path('images/watermark-default.png');
             if (file_exists($logoPath)) {
-                $watermarkImage->insert($logoPath, 'center', 50, 50);
+                $watermarkImage->insert($logoPath, 0, 0, 'center');
             }
         } catch (\Exception $e) {
             // Ignora
