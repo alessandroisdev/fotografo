@@ -57,8 +57,7 @@ class MercadoPagoGateway implements PaymentGatewayInterface
                     'Content-Type' => 'application/json'
                 ])->timeout(15)->post("{$this->baseUrl}/v1/payments", $payload);
 
-            // Roteamento Transparente Cartão de Crédito
-            if ($order->gateway === \App\Enums\PaymentMethodEnum::CREDIT_CARD->value && !empty($paymentData)) {
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::CREDIT_CARD->value && !empty($paymentData)) {
                 // 1. Gerar Token PCI via PublicKey Server-Side
                 $tokenResponse = \Illuminate\Support\Facades\Http::withHeaders([
                     'Content-Type' => 'application/json'
