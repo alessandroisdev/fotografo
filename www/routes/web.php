@@ -18,8 +18,19 @@ use App\Http\Controllers\Client\DashboardController as ClientDashboardController
 use App\Http\Controllers\Client\GalleryController as ClientGalleryController;
 use App\Http\Controllers\Client\CheckoutController as ClientCheckoutController;
 
+use App\Models\Gallery;
+
 Route::get('/', function () {
-    return view('home');
+    $galleries = Gallery::with(['photos' => function($query) {
+                        $query->where('status', 'ready')->inRandomOrder()->take(1);
+                    }])
+                    ->withCount('photos')
+                    ->where('status', '!=', 'draft')
+                    ->latest()
+                    ->take(6)
+                    ->get();
+                    
+    return view('home', compact('galleries'));
 });
 
 // Authentication Routes
