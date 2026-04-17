@@ -13,6 +13,7 @@ class Order extends Model
 
     protected $casts = [
         'status' => \App\Enums\OrderStatusEnum::class,
+        'gateway_payload' => 'array',
     ];
 
     public function user() {

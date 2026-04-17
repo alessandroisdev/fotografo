@@ -8,11 +8,12 @@ class PaymentResponse
         public bool $success,
         public string $message,
         public ?string $redirectUrl = null,
-        public ?string $externalId = null
+        public ?string $externalId = null,
+        public ?array $payload = null
     ) {}
 
-    public static function make(bool $success, string $message, ?string $redirectUrl = null, ?string $externalId = null): self
+    public static function make(bool $success, string $message, ?string $redirectUrl = null, ?string $externalId = null, ?array $payload = null): self
     {
-        return new self($success, $message, $redirectUrl, $externalId);
+        return new self($success, $message, $redirectUrl, $externalId, $payload);
     }
 }

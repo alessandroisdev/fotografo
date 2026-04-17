@@ -88,8 +88,9 @@ class AsaasGateway implements PaymentGatewayInterface
             
             // 3. Registrar o ID financeiro como Pending
             $order->update(['status' => 'pending', 'gateway_transaction_id' => $paymentId]);
+            $gatewayPayload = null;
 
-            // Se for PIX, nós fazemos a SEGUNDA chamada pra pegar o Payload Copy+Paste ou Base64 (Transparente)
+            // Tratamentos Transparentes
             if ($billingType === 'PIX') {
                 $pixResponse = Http::withHeaders([
                     'access_token' => $this->apiKey,
@@ -97,19 +98,34 @@ class AsaasGateway implements PaymentGatewayInterface
                 ])->timeout(10)->get($this->baseUrl . "/payments/{$paymentId}/pixQrCode");
                 
                 if ($pixResponse->successful()) {
-                    // Nós podemos guardar a URL ou o Payload String. No caso, vamos retornar null pra URL de link,
-                    // assumindo que no futuro o Gateway retorne Strings base64 se quisermos. O Frontend costuma usar redirect.
-                    // Para fins de universalidade temporária, podemos mandar a InvoiceUrl que exibe o Pix do Asaas.
-                    // Mas tentaremos retornar a URL crua do QR Code se suportado futuramente na view.
-                    Log::info('PIX gerado', ['pix' => $pixResponse->json()]);
+                    $pixData = $pixResponse->json();
+                    $gatewayPayload = [
+                        'type' => 'pix',
+                        'qr_code' => $pixData['payload'] ?? null,
+                        'qr_code_base64' => ltrim($pixData['encodedImage'] ?? '', 'data:image/png;base64,') ?: ($pixData['encodedImage'] ?? null),
+                    ];
                 }
+                $message = 'Chave Pix (Asaas) gerada! Realize a transferência.';
+            } elseif ($billingType === 'CREDIT_CARD' && !empty($paymentData)) {
+                 $order->update(['status' => \App\Enums\OrderStatusEnum::PAID, 'paid_at' => now()]);
+                 $message = 'Transação Transparente V3 (Cartão) processada e aprovada com sucesso no Asaas!';
+            } elseif ($billingType === 'BOLETO') {
+                 $gatewayPayload = [
+                     'type' => 'boleto',
+                     'barcode' => $responseData['identificationField'] ?? null,
+                     'pdf_url' => $responseData['bankSlipUrl'] ?? null,
+                 ];
+                 $message = 'Boleto Eletrônico Bancário (Asaas) gerado com retornos limpos!';
+            } else {
+                 $message = 'Cobrança gerada com sucesso.';
             }
 
             return PaymentResponse::make(
                 success: true,
-                message: $billingType === 'PIX' ? 'Gerando chave de transferência central...' : 'Fatura em Faturamento Eletrônico Asaas Acionada',
-                redirectUrl: $responseData['invoiceUrl'] ?? null,
-                externalId: $paymentId
+                message: $message,
+                redirectUrl: null, // Zero Redirects
+                externalId: $paymentId,
+                payload: $gatewayPayload
             );
 
         } catch (\Exception $e) {

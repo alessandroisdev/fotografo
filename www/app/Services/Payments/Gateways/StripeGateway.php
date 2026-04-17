@@ -26,99 +26,87 @@ class StripeGateway implements PaymentGatewayInterface
     public function generateCharge(Order $order, ?array $paymentData = null): PaymentResponse
     {
         try {
+            // Montagem Bruta e Limpa do PaymentIntent Global (Transparente para Todos)
+            $payload = [
+                'amount' => round($order->total_amount, 2) * 100, // centavos
+                'currency' => 'brl',
+                'confirm' => 'true', // Exige confirmação server-side imediata
+                'receipt_email' => $order->user->email,
+                'metadata' => ['uuid' => $order->uuid],
+            ];
+
             if ($order->gateway === \App\Enums\PaymentMethodEnum::CREDIT_CARD->value && !empty($paymentData)) {
-                // Fluxo Transparente via PaymentIntents da Stripe
-                $payload = [
-                    'amount' => round($order->total_amount, 2) * 100, // Stripe usa centavos
-                    'currency' => 'brl',
-                    'payment_method_types[0]' => 'card',
-                    'confirm' => 'true',
-                    'receipt_email' => $order->user->email,
-                    'metadata' => ['uuid' => $order->uuid],
-                    'payment_method_data[type]' => 'card',
-                    'payment_method_data[card][number]' => preg_replace('/[^0-9]/', '', $paymentData['card_number']),
-                    'payment_method_data[card][exp_month]' => explode('/', $paymentData['card_expiry'])[0],
-                    'payment_method_data[card][exp_year]' => '20' . (explode('/', $paymentData['card_expiry'])[1] ?? ''),
-                    'payment_method_data[card][cvc]' => $paymentData['card_cvv'],
-                ];
+                $payload['payment_method_types[0]'] = 'card';
+                $payload['payment_method_data[type]'] = 'card';
+                $payload['payment_method_data[card][number]'] = preg_replace('/[^0-9]/', '', $paymentData['card_number']);
+                $payload['payment_method_data[card][exp_month]'] = explode('/', $paymentData['card_expiry'])[0];
+                $payload['payment_method_data[card][exp_year]'] = '20' . (explode('/', $paymentData['card_expiry'])[1] ?? '');
+                $payload['payment_method_data[card][cvc]'] = $paymentData['card_cvv'];
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::PIX->value) {
+                $payload['payment_method_types[0]'] = 'pix';
+                $payload['payment_method_options[pix][expires_after_seconds]'] = 3600;
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BOLETO->value) {
+                // Stripe BOLETO exige Tax ID do cliente (CPF) no objeto para autorizar a confecção
+                $document = preg_replace('/[^0-9]/', '', $order->user->document ?? '00000000000');
+                if (empty($document)) $document = '00000000000';
+                $payload['payment_method_types[0]'] = 'boleto';
+                $payload['payment_method_data[type]'] = 'boleto';
+                $payload['payment_method_data[boleto][tax_id]'] = $document;
+            } else {
+                 return PaymentResponse::make(false, 'Modo desabilitado no Stripe.');
+            }
 
-                $response = \Illuminate\Support\Facades\Http::withToken($this->secretKey)
-                    ->asForm()
-                    ->timeout(15)
-                    ->post("{$this->baseUrl}/payment_intents", $payload);
+            // Disparo Server-to-Server
+            $response = \Illuminate\Support\Facades\Http::withToken($this->secretKey)
+                ->asForm()
+                ->timeout(15)
+                ->post("{$this->baseUrl}/payment_intents", $payload);
 
-                if ($response->failed()) {
-                    Log::error('Stripe Transparent Card Error', ['res' => $response->json()]);
-                    return PaymentResponse::make(false, 'Serviço global inoperante ou cartão recusado (Stripe). Tente mais tarde ou use outro cartão.');
-                }
+            if ($response->failed()) {
+                Log::error('Stripe Payload Error (PaymentIntents)', ['res' => $response->json()]);
+                return PaymentResponse::make(false, 'Serviço global inoperante (Stripe) ou falha na composição dos documentos.');
+            }
 
-                $intent = $response->json();
-                $order->update(['status' => 'pending', 'gateway_transaction_id' => $intent['id']]);
+            $intent = $response->json();
+            $order->update(['status' => 'pending', 'gateway_transaction_id' => $intent['id']]);
+            $gatewayPayload = null;
 
-                if (($intent['status'] ?? '') === 'succeeded') {
+            // Transição e Extração de Respostas Assíncronas Transparentes
+            if ($order->gateway === \App\Enums\PaymentMethodEnum::PIX->value) {
+                 if (isset($intent['next_action']['pix_display_qr_code'])) {
+                     $gatewayPayload = [
+                         'type' => 'pix',
+                         'qr_code' => $intent['next_action']['pix_display_qr_code']['data'] ?? null,
+                         'qr_code_base64' => $intent['next_action']['pix_display_qr_code']['image_url_png'] ?? null,
+                     ];
+                 }
+                 $msg = 'Código Copia e Cola via Stripe Pix liberado.';
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BOLETO->value) {
+                 if (isset($intent['next_action']['boleto_display_details'])) {
+                     $details = $intent['next_action']['boleto_display_details'];
+                     $gatewayPayload = [
+                         'type' => 'boleto',
+                         'barcode' => $details['number'] ?? null,
+                         'pdf_url' => $details['hosted_voucher_url'] ?? null,
+                     ];
+                 }
+                 $msg = 'Boleto Eletrônico Stripe liberado em anexo.';
+            } else {
+                 if (($intent['status'] ?? '') === 'succeeded') {
                      $order->update(['status' => \App\Enums\OrderStatusEnum::PAID, 'paid_at' => now()]);
                      $msg = 'Transação por Cartão processada com sucesso no Stripe!';
-                } else {
+                 } else {
                      $msg = 'Transação pendente/em análise no Stripe.';
-                }
-
-                return PaymentResponse::make(
-                    success: true,
-                    message: $msg,
-                    redirectUrl: null,
-                    externalId: $intent['id']
-                );
-            } else {
-                // Roteamento antigo para Sessão (PIX e Boleto mantêm a Sessão para Gerar o Link/QR do Stripe)
-                $paymentMethodTypes = ['card'];
-                if ($order->gateway === \App\Enums\PaymentMethodEnum::PIX->value) {
-                    $paymentMethodTypes = ['pix'];
-                } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BOLETO->value) {
-                    $paymentMethodTypes = ['boleto'];
-                }
-
-                $payload = [
-                    'success_url' => route('client.dashboard', ['stripe_success' => '1']),
-                    'cancel_url' => route('client.dashboard'),
-                    'mode' => 'payment',
-                    'client_reference_id' => $order->uuid,
-                    'customer_email' => $order->user->email,
-                    'payment_intent_data' => [
-                        'metadata' => [
-                            'uuid' => $order->uuid
-                        ]
-                    ],
-                    'line_items[0][price_data][currency]' => 'brl',
-                    'line_items[0][price_data][product_data][name]' => 'Ensaios e Fotografias: ' . $order->gallery->name,
-                    'line_items[0][price_data][unit_amount]' => round($order->total_amount, 2) * 100, // Stripe usa centavos
-                    'line_items[0][quantity]' => 1,
-                ];
-
-                // Injeta o array de métodos dinamicamente permitidos
-                foreach ($paymentMethodTypes as $index => $type) {
-                    $payload["payment_method_types[{$index}]"] = $type;
-                }
-
-                $response = \Illuminate\Support\Facades\Http::withToken($this->secretKey)
-                    ->asForm()
-                    ->timeout(15)
-                    ->post("{$this->baseUrl}/checkout/sessions", $payload);
-
-                if ($response->failed()) {
-                    Log::error('Stripe Payload Error', ['res' => $response->json()]);
-                    return PaymentResponse::make(false, 'Serviço global inoperante (Stripe). Tente mais tarde.');
-                }
-
-                $order->update(['status' => 'pending']);
-                $stripeSession = $response->json();
-
-                return PaymentResponse::make(
-                    success: true,
-                    message: 'Redirecionando de modo protegido.',
-                    redirectUrl: $stripeSession['url'] ?? null,
-                    externalId: $stripeSession['id'] ?? null // id da sessao (cs_test...) o Webhook altera pra PI
-                );
+                 }
             }
+
+            return PaymentResponse::make(
+                success: true,
+                message: $msg,
+                redirectUrl: null, // Transparent Lock - Escapes Denied
+                externalId: $intent['id'],
+                payload: $gatewayPayload
+            );
         } catch (\Exception $e) {
             Log::error('Stripe Fallback: ' . $e->getMessage());
             return PaymentResponse::make(false, 'Falha interna de comunicação HTTP.');

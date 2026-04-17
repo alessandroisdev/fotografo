@@ -105,9 +105,12 @@ class CheckoutController extends Controller
             return redirect()->route('client.dashboard')->with('error', $paymentResponse->message);
         }
 
-        // Os controladores da V2 agora podem já liquidar as Orders na hora
         if ($paymentResponse->externalId && empty($order->gateway_transaction_id)) {
             $order->update(['gateway_transaction_id' => $paymentResponse->externalId]);
+        }
+        
+        if (!empty($paymentResponse->payload)) {
+            $order->update(['gateway_payload' => $paymentResponse->payload]);
         }
 
         if ($paymentResponse->redirectUrl) {
@@ -155,6 +158,10 @@ class CheckoutController extends Controller
 
         if (!$paymentResponse->success) {
             return redirect()->route('client.dashboard')->with('error', $paymentResponse->message);
+        }
+
+        if (!empty($paymentResponse->payload)) {
+            $order->update(['gateway_payload' => $paymentResponse->payload]);
         }
 
         if ($paymentResponse->redirectUrl) {

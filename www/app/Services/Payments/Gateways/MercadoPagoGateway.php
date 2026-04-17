@@ -105,35 +105,35 @@ class MercadoPagoGateway implements PaymentGatewayInterface
                     'Content-Type' => 'application/json'
                 ])->timeout(15)->post("{$this->baseUrl}/v1/payments", $payload);
 
-            } else {
-                // Checkout Pro legado para Boletos... (Boleto não pede cartão)
-                if ($order->gateway === \App\Enums\PaymentMethodEnum::BOLETO->value || empty($paymentData)) {
-                    $dashboardUrl = route('client.dashboard');
-                    $payload = [
-                        'items' => [
-                            [
-                                'title' => 'Fotografias Finais - ' . $order->gallery->name,
-                                'description' => 'Acesso definitivo ao Acervo Fotográfico.',
-                                'quantity' => 1,
-                                'currency_id' => 'BRL',
-                                'unit_price' => round($order->total_amount, 2),
-                            ]
-                        ],
-                        'payer' => [
-                            'name' => $order->user->name,
-                            'email' => $order->user->email,
-                        ],
-                        'external_reference' => $order->uuid,
-                        'back_urls' => [
-                            'success' => $dashboardUrl,
-                        ]
-                    ];
-    
-                    $response = \Illuminate\Support\Facades\Http::withHeaders([
-                        'Authorization' => 'Bearer ' . $this->accessToken,
-                        'Content-Type' => 'application/json'
-                    ])->timeout(15)->post("{$this->baseUrl}/checkout/preferences", $payload);
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BOLETO->value) {
+                // Pagamento Transparente Boleto V1
+                $document = preg_replace('/[^0-9]/', '', $order->user->document ?? '');
+                if (empty($document) || (strlen($document) !== 11 && strlen($document) !== 14)) {
+                    $document = \Illuminate\Support\Facades\App::environment('local') ? '19119119100' : '00000000000';
                 }
+
+                $payload = [
+                    'transaction_amount' => round($order->total_amount, 2),
+                    'description' => 'Fotografias Finais - ' . $order->gallery->name,
+                    'payment_method_id' => 'bolbradesco',
+                    'payer' => [
+                        'email' => $order->user->email,
+                        'first_name' => explode(' ', $order->user->name)[0],
+                        'identification' => [
+                            'type' => strlen($document) === 14 ? 'CNPJ' : 'CPF',
+                            'number' => $document
+                        ]
+                    ],
+                    'external_reference' => $order->uuid
+                ];
+
+                $response = \Illuminate\Support\Facades\Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $this->accessToken,
+                    'X-Idempotency-Key' => $order->uuid . rand(),
+                    'Content-Type' => 'application/json'
+                ])->timeout(15)->post("{$this->baseUrl}/v1/payments", $payload);
+            } else {
+                 return PaymentResponse::make(false, 'Mercado Pago não suporta este modo.');
             }
 
             if ($response->failed()) {
@@ -142,19 +142,21 @@ class MercadoPagoGateway implements PaymentGatewayInterface
             }
 
             $order->update(['status' => 'pending']);
-
             $payloadRes = $response->json();
+            $externalId = $payloadRes['id'] ?? null;
+            $gatewayPayload = null;
             
-            // Tratamento de Resposta
+            // Tratamento de Resposta Transparente (Nenhuma Modalidade Redireciona Mais)
             if ($order->gateway === \App\Enums\PaymentMethodEnum::PIX->value) {
-                // Pagamento Pix Transparente
-                $redirectUrl = $payloadRes['point_of_interaction']['transaction_data']['ticket_url'] ?? null;
-                $externalId = $payloadRes['id'] ?? null;
-                $message = 'Redirecionando para o QR Code PIX (Mercado Pago)...';
+                // Captura do Payload Bruto do QR Code Pix
+                $gatewayPayload = [
+                    'type' => 'pix',
+                    'qr_code' => $payloadRes['point_of_interaction']['transaction_data']['qr_code'] ?? null,
+                    'qr_code_base64' => $payloadRes['point_of_interaction']['transaction_data']['qr_code_base64'] ?? null,
+                ];
+                $message = 'QR Code PIX gerado com sucesso pelo Mercado Pago!';
+
             } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::CREDIT_CARD->value && !empty($paymentData)) {
-                // Pagamento Transparente Cartão de Crédito
-                $redirectUrl = null;
-                $externalId = $payloadRes['id'] ?? null;
                 if (($payloadRes['status'] ?? '') === 'approved') {
                     $order->update(['status' => \App\Enums\OrderStatusEnum::PAID, 'paid_at' => now(), 'gateway_transaction_id' => $externalId]);
                     $message = 'Transação por Cartão V1 processada e aprovada com sucesso!';
@@ -162,19 +164,24 @@ class MercadoPagoGateway implements PaymentGatewayInterface
                     $order->update(['gateway_transaction_id' => $externalId]);
                     $message = 'Transação registrada (Status: ' . ($payloadRes['status'] ?? 'pending') . '). Depende de processamento bancário.';
                 }
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BOLETO->value) {
+                // Captura do Payload Bruto do Boleto
+                $gatewayPayload = [
+                    'type' => 'boleto',
+                    'barcode' => $payloadRes['barcode']['content'] ?? null,
+                    'pdf_url' => $payloadRes['transaction_details']['external_resource_url'] ?? null,
+                ];
+                $message = 'Boleto Bancário gerado com sucesso no Mercado Pago!';
             } else {
-                // Preference de Boleto
-                $redirectKey = $this->isSandbox ? 'sandbox_init_point' : 'init_point';
-                $redirectUrl = $payloadRes[$redirectKey] ?? null;
-                $externalId = $payloadRes['id'] ?? null; // ID da Preference
-                $message = 'Encaminhando ao Cofre Seguro Automático do Mercado Pago...';
+                $message = 'Pagamento solicitado.';
             }
 
             return PaymentResponse::make(
                 success: true,
                 message: $message,
-                redirectUrl: $redirectUrl,
-                externalId: $externalId
+                redirectUrl: null, // NUNCA MAIS REDIRECIONAR! TRANSPARÊNCIA TOTAL.
+                externalId: $externalId,
+                payload: $gatewayPayload
             );
 
         } catch (\Exception $e) {

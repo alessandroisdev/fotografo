@@ -87,9 +87,35 @@
                                  <a href="{{ route('client.orders.download', $order->uuid) }}" class="btn btn-primary rounded-pill fw-bold"><i class="bi bi-file-earmark-zip-fill me-2"></i> Baixar ZIP em Alta Qualidade</a>
                                  <a href="{{ route('client.orders.show', $order->uuid) }}" class="btn btn-outline-light rounded-pill"><i class="bi bi-eye"></i> Visualizar Minhas Fotos</a>
                              @else
-                                 <button class="btn btn-secondary rounded-pill mb-2 opacity-75" disabled><i class="bi bi-clock-history me-2"></i> Liberado Após Baixa</button>
-                                 <button type="button" class="btn btn-outline-warning rounded-pill fw-bold" data-bs-toggle="modal" data-bs-target="#retryModal-{{ $order->uuid }}">
-                                     <i class="bi bi-arrow-repeat me-2"></i> Falhou? Retentar Pgto
+                                 @if($order->gateway_payload)
+                                     <div class="bg-black border border-secondary rounded p-3 mb-2 text-center">
+                                         @if(($order->gateway_payload['type'] ?? '') === 'pix')
+                                             <h6 class="text-success mb-2 fw-bold"><i class="bi bi-qr-code"></i> Escaneie o Pix</h6>
+                                             @if(!empty($order->gateway_payload['qr_code_base64']))
+                                                 <img src="data:image/png;base64,{{ $order->gateway_payload['qr_code_base64'] }}" alt="QR Code Pix" class="img-fluid bg-white p-1 rounded mb-2" style="max-width: 140px;">
+                                             @endif
+                                             @if(!empty($order->gateway_payload['qr_code']))
+                                                 <div class="input-group input-group-sm">
+                                                     <input type="text" class="form-control bg-dark text-white border-secondary" value="{{ $order->gateway_payload['qr_code'] }}" id="pix-{{ $order->uuid }}" readonly>
+                                                     <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('pix-{{ $order->uuid }}').value); alert('Código Pix Copiado com sucesso!')"><i class="bi bi-clipboard"></i> Copiar</button>
+                                                 </div>
+                                             @endif
+                                         @elseif(($order->gateway_payload['type'] ?? '') === 'boleto')
+                                             <h6 class="text-warning mb-2 fw-bold"><i class="bi bi-upc-scan"></i> Boleto Bancário</h6>
+                                             @if(!empty($order->gateway_payload['barcode']))
+                                                 <p class="small text-white user-select-all text-break mb-2 fw-bold bg-dark p-2 border border-secondary rounded fs-6">{{ $order->gateway_payload['barcode'] }}</p>
+                                             @endif
+                                             @if(!empty($order->gateway_payload['pdf_url']))
+                                                 <a href="{{ $order->gateway_payload['pdf_url'] }}" target="_blank" class="btn btn-sm btn-warning fw-bold text-dark rounded-pill"><i class="bi bi-file-pdf me-1"></i> Visualizar/Imprimir PDF</a>
+                                             @endif
+                                         @endif
+                                     </div>
+                                 @else
+                                     <button class="btn btn-secondary rounded-pill mb-2 opacity-75" disabled><i class="bi bi-clock-history me-2"></i> Aguardando Confirmação</button>
+                                 @endif
+                                 
+                                 <button type="button" class="btn btn-outline-warning rounded-pill mt-1 fw-bold" data-bs-toggle="modal" data-bs-target="#retryModal-{{ $order->uuid }}">
+                                     <i class="bi bi-arrow-repeat me-2"></i> Alterar Meio ou Retentar Pgto
                                  </button>
                              @endif
                         </div>

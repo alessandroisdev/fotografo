@@ -56,134 +56,109 @@ class PagarMeGateway implements PaymentGatewayInterface
                 'code' => (string) $order->id
             ]];
 
+            $paymentsObj = [];
             if ($order->gateway === \App\Enums\PaymentMethodEnum::PIX->value) {
-                // Fluxo Transparente Pix - Ordem fechada contendo o Payment Method Pix
-                $payload = [
-                    'code' => $order->uuid,
-                    'customer' => $baseCustomer,
-                    'items' => $baseItems,
-                    'payments' => [[
-                        'payment_method' => 'pix',
-                        'pix' => [
-                            'expires_in' => 3600,
-                            'additional_information' => [
-                                ['Name' => 'Referencia', 'Value' => $order->uuid]
-                            ]
+                $paymentsObj = [[
+                    'payment_method' => 'pix',
+                    'pix' => [
+                        'expires_in' => 3600,
+                        'additional_information' => [
+                            ['Name' => 'Referencia', 'Value' => $order->uuid]
                         ]
-                    ]]
-                ];
-
-                $response = \Illuminate\Support\Facades\Http::withBasicAuth($this->apiKey, '')
-                    ->timeout(15)
-                    ->post("{$this->baseUrl}/orders", $payload);
-
-                if ($response->failed()) {
-                    Log::error('PagarMe API Pix Error', ['body' => $response->json()]);
-                    return PaymentResponse::make(false, 'Servidor global Pagar.me não processou a ordem Pix.');
-                }
-                
-                $pgmOrder = $response->json();
-                $qrCodeUrl = $pgmOrder['charges'][0]['last_transaction']['qr_code_url'] ?? null;
-                $chargeId = $pgmOrder['charges'][0]['id'] ?? $pgmOrder['id'];
-
-                $order->update(['status' => 'pending', 'gateway_transaction_id' => $chargeId]);
-
-                return PaymentResponse::make(
-                    success: true,
-                    message: 'Gerando o QR Code Pix pelo Pagar.me...',
-                    redirectUrl: $qrCodeUrl, // Serve o QrCode Url (em um cenário real seria interessante a string bruta copy+paste também)
-                    externalId: $chargeId
-                );
-
+                    ]
+                ]];
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BOLETO->value) {
+                $paymentsObj = [[
+                    'payment_method' => 'boleto',
+                    'boleto' => [
+                        'instructions' => 'Pagamento de Pacote Fotográfico.',
+                        'due_at' => date('Y-m-d\TH:i:s\Z', strtotime('+3 days')),
+                        'document_number' => $document,
+                        'type' => 'DM'
+                    ]
+                ]];
             } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::CREDIT_CARD->value && !empty($paymentData)) {
-                // Fluxo Transparente Cartão de Crédito
-                $payload = [
-                    'code' => $order->uuid,
-                    'customer' => $baseCustomer,
-                    'items' => $baseItems,
-                    'payments' => [[
-                        'payment_method' => 'credit_card',
-                        'credit_card' => [
-                            'installments' => 1,
-                            'statement_descriptor' => 'FOTOGRAFO',
-                            'card' => [
-                                'number' => preg_replace('/[^0-9]/', '', $paymentData['card_number']),
-                                'holder_name' => $paymentData['card_holder'],
-                                'exp_month' => (int) explode('/', $paymentData['card_expiry'])[0],
-                                'exp_year' => (int) explode('/', $paymentData['card_expiry'])[1],
-                                'cvv' => $paymentData['card_cvv'],
-                                'billing_address' => [
-                                    'line_1' => 'Avenida Paulista, 1000',
-                                    'zip_code' => '01310100',
-                                    'city' => 'Sao Paulo',
-                                    'state' => 'SP',
-                                    'country' => 'BR'
-                                ]
+                $paymentsObj = [[
+                    'payment_method' => 'credit_card',
+                    'credit_card' => [
+                        'installments' => 1,
+                        'statement_descriptor' => 'FOTOGRAFO',
+                        'card' => [
+                            'number' => preg_replace('/[^0-9]/', '', $paymentData['card_number']),
+                            'holder_name' => $paymentData['card_holder'],
+                            'exp_month' => (int) explode('/', $paymentData['card_expiry'])[0],
+                            'exp_year' => (int) explode('/', $paymentData['card_expiry'])[1],
+                            'cvv' => $paymentData['card_cvv'],
+                            'billing_address' => [
+                                'line_1' => 'Rua Principal, 100',
+                                'zip_code' => '01001000',
+                                'city' => 'Sao Paulo',
+                                'state' => 'SP',
+                                'country' => 'BR'
                             ]
                         ]
-                    ]]
+                    ]
+                ]];
+            } else {
+                 return PaymentResponse::make(false, 'Modo desabilitado no PagarMe.');
+            }
+
+            // Disparo Server to Server Nativo (Transparente em Tudo)
+            $payload = [
+                'code' => $order->uuid,
+                'customer' => $baseCustomer,
+                'items' => $baseItems,
+                'payments' => $paymentsObj
+            ];
+
+            $response = \Illuminate\Support\Facades\Http::withBasicAuth($this->apiKey, '')
+                ->timeout(15)
+                ->post("{$this->baseUrl}/orders", $payload);
+
+            if ($response->failed()) {
+                Log::error('PagarMe API Transparent Order Error', ['body' => $response->json()]);
+                return PaymentResponse::make(false, 'Servidor global Pagar.me não processou a ordem ' . ($order->gateway) . '.');
+            }
+
+            $pgmOrder = $response->json();
+            $chargeId = $pgmOrder['charges'][0]['id'] ?? $pgmOrder['id'];
+            $gatewayPayload = null;
+
+            // Extração Assíncrona Nativa (Transparente)
+            if ($order->gateway === \App\Enums\PaymentMethodEnum::PIX->value) {
+                $order->update(['status' => 'pending', 'gateway_transaction_id' => $chargeId]);
+                $gatewayPayload = [
+                    'type' => 'pix',
+                    'qr_code' => $pgmOrder['charges'][0]['last_transaction']['qr_code'] ?? null,
+                    'qr_code_base64' => $pgmOrder['charges'][0]['last_transaction']['qr_code_url'] ?? null, // QrCodeUrl acts as image source if needed
                 ];
-
-                $response = \Illuminate\Support\Facades\Http::withBasicAuth($this->apiKey, '')
-                    ->timeout(15)
-                    ->post("{$this->baseUrl}/orders", $payload);
-
-                if ($response->failed()) {
-                    Log::error('PagarMe API Card Error', ['body' => $response->json()]);
-                    return PaymentResponse::make(false, 'O Pagar.Me recusou a transação do cartão de crédito (Verifique o limite ou os dados informados).');
-                }
-
-                $pgmOrder = $response->json();
-                $chargeId = $pgmOrder['charges'][0]['id'] ?? $pgmOrder['id'];
+                $msg = 'QR Code PIX gerado com blindagem Server-Side (Pagar.me)!';
+            } elseif ($order->gateway === \App\Enums\PaymentMethodEnum::BOLETO->value) {
+                $order->update(['status' => 'pending', 'gateway_transaction_id' => $chargeId]);
+                $gatewayPayload = [
+                    'type' => 'boleto',
+                    'barcode' => $pgmOrder['charges'][0]['last_transaction']['line'] ?? null,
+                    'pdf_url' => $pgmOrder['charges'][0]['last_transaction']['pdf'] ?? null,
+                ];
+                $msg = 'Boleto Eletrônico Pagar.me emitido localmente!';
+            } else {
                 $status = $pgmOrder['status'] ?? 'pending';
-                
                 if ($status === 'paid') {
                      $order->update(['status' => \App\Enums\OrderStatusEnum::PAID, 'paid_at' => now(), 'gateway_transaction_id' => $chargeId]);
                      $msg = 'Transação Transparente V5 (Cartão) Autorizada!';
                 } else {
                      $order->update(['status' => 'pending', 'gateway_transaction_id' => $chargeId]);
-                     $msg = "Transação capturada ({$status}), aguardando processamento bancário da operadora.";
+                     $msg = "Transação capturada ({$status}), no aguardo da liquidação da bandeira.";
                 }
-
-                return PaymentResponse::make(
-                    success: true,
-                    message: $msg,
-                    redirectUrl: null,
-                    externalId: $chargeId
-                );
-            } else {
-                // Fluxo Boleto
-                $payload = [
-                    'name' => 'Pedido #' . substr($order->uuid, 0, 8),
-                    'items' => $baseItems,
-                    'payment_settings' => [
-                        'accepted_payment_methods' => ['boleto'],
-                    ],
-                    'customer' => $baseCustomer,
-                    'metadata' => [
-                        'uuid' => (string) $order->uuid
-                    ]
-                ];
-
-                $response = \Illuminate\Support\Facades\Http::withBasicAuth($this->apiKey, '')
-                    ->timeout(15)
-                    ->post("{$this->baseUrl}/paymentlinks", $payload);
-
-                if ($response->failed()) {
-                    Log::error('PagarMe API Payment Link Error', ['body' => $response->json()]);
-                    return PaymentResponse::make(false, 'Servidor global Pagar.me não responde.' . $response->body());
-                }
-
-                $order->update(['status' => 'pending']);
-                $pgmLink = $response->json();
-
-                return PaymentResponse::make(
-                    success: true,
-                    message: 'Encaminhando ao Link Único Seguro do Pagar.me (Boleto)',
-                    redirectUrl: $pgmLink['url'] ?? null,
-                    externalId: $pgmLink['id'] ?? null // ID do link, no webhook virá o Code = OrderUuid
-                );
             }
+
+            return PaymentResponse::make(
+                success: true,
+                message: $msg,
+                redirectUrl: null, // Escapes Anulados - Transparência Unificada!
+                externalId: $chargeId,
+                payload: $gatewayPayload
+            );
         } catch (\Exception $e) {
             Log::error('PagarMe Fallback: ' . $e->getMessage());
             return PaymentResponse::make(false, 'Falha interna na API Pagar.Me.');
