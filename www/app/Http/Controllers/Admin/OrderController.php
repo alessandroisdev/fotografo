@@ -73,7 +73,7 @@ class OrderController extends Controller
     public function update(Request $request, Order $order)
     {
         $validated = $request->validate([
-            'status' => [\Illuminate\Validation\Rules\Enum::class, \App\Enums\OrderStatusEnum::class]
+            'status' => [new \Illuminate\Validation\Rules\Enum(\App\Enums\OrderStatusEnum::class)]
         ]);
 
         $statusEnum = \App\Enums\OrderStatusEnum::tryFrom($request->status);

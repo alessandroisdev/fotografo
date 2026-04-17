@@ -2,6 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 
+// Public
+use App\Http\Controllers\PublicPortfolioController;
+
 // Auth
 use App\Http\Controllers\AuthController;
 
@@ -12,11 +15,16 @@ use App\Http\Controllers\Admin\GalleryController;
 use App\Http\Controllers\Admin\PhotoController;
 use App\Http\Controllers\Admin\PackageController;
 use App\Http\Controllers\Admin\OrderController;
+use App\Http\Controllers\Admin\SettingController;
 
 // Client
 use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
 use App\Http\Controllers\Client\GalleryController as ClientGalleryController;
 use App\Http\Controllers\Client\CheckoutController as ClientCheckoutController;
+use App\Http\Controllers\Client\OrderController as ClientOrderController;
+
+// Webhooks
+use App\Http\Controllers\Webhooks\PaymentWebhookController;
 
 use App\Models\Gallery;
 
@@ -39,7 +47,7 @@ Route::get('/', function () {
 });
 
 // Portfólio Público Dinâmico
-Route::get('/portfolio/{gallery:uuid}', [\App\Http\Controllers\PublicPortfolioController::class, 'show'])->name('portfolio.show');
+Route::get('/portfolio/{gallery:uuid}', [PublicPortfolioController::class, 'show'])->name('portfolio.show');
 
 // Authentication Routes
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
@@ -65,10 +73,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     
     Route::resource('packages', PackageController::class);
     Route::resource('orders', OrderController::class)->only(['index', 'update', 'destroy', 'show']);
-    Route::post('orders/{order}/retry', [\App\Http\Controllers\Admin\OrderController::class, 'retry'])->name('orders.retry');
+    Route::post('orders/{order}/retry', [OrderController::class, 'retry'])->name('orders.retry');
     // Settings
-    Route::get('settings', [\App\Http\Controllers\Admin\SettingController::class, 'index'])->name('settings.index');
-    Route::post('settings', [\App\Http\Controllers\Admin\SettingController::class, 'store'])->name('settings.store');
+    Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
+    Route::post('settings', [SettingController::class, 'store'])->name('settings.store');
 });
 
 // Client Area Protected
@@ -84,10 +92,10 @@ Route::middleware(['auth'])->prefix('client')->name('client.')->group(function (
     Route::post('/order/{uuid}/retry', [ClientCheckoutController::class, 'retryPayment'])->name('checkout.retry');
     
     // Histórico Financeiro
-    Route::get('/order/{uuid}', [\App\Http\Controllers\Client\OrderController::class, 'show'])->name('orders.show');
-    Route::get('/order/{uuid}/download', [\App\Http\Controllers\Client\OrderController::class, 'downloadZip'])->name('orders.download');
+    Route::get('/order/{uuid}', [ClientOrderController::class, 'show'])->name('orders.show');
+    Route::get('/order/{uuid}/download', [ClientOrderController::class, 'downloadZip'])->name('orders.download');
 });
 
 // External Webhooks - Abstração Dinâmica
-Route::post('/webhooks/{gateway}', [\App\Http\Controllers\Webhooks\PaymentWebhookController::class, 'handle'])
+Route::post('/webhooks/{gateway}', [PaymentWebhookController::class, 'handle'])
     ->name('webhooks.handle');
