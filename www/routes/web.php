@@ -80,6 +80,7 @@ Route::middleware(['auth'])->prefix('client')->name('client.')->group(function (
     // Checkout Flow
     Route::post('/gallery/{uuid}/checkout', [ClientCheckoutController::class, 'review'])->name('checkout.review');
     Route::post('/gallery/{uuid}/order', [ClientCheckoutController::class, 'process'])->name('checkout.process');
+    Route::post('/order/{uuid}/retry', [ClientCheckoutController::class, 'retryPayment'])->name('checkout.retry');
     
     // Histórico Financeiro
     Route::get('/order/{uuid}', [\App\Http\Controllers\Client\OrderController::class, 'show'])->name('orders.show');

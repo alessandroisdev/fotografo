@@ -111,4 +111,43 @@ class CheckoutController extends Controller
         // Cortesia, Dinheiro ou Pagamento Local
         return redirect()->route('client.dashboard')->with('success', $paymentResponse->message);
     }
+
+    // Etapa 3: Retentativa de Pagamento Pense/Falho
+    public function retryPayment(Request $request, $uuid)
+    {
+        $request->validate([
+            'payment_method' => 'required|string'
+        ]);
+
+        $order = Order::where('uuid', $uuid)->where('user_id', Auth::id())->firstOrFail();
+
+        if ($order->status === \App\Enums\OrderStatusEnum::PAID) {
+            return redirect()->route('client.dashboard')->with('error', 'Este pedido já está pago e liberado.');
+        }
+
+        $paymentMethodEnum = \App\Enums\PaymentMethodEnum::tryFrom($request->payment_method);
+        if (!$paymentMethodEnum) {
+            return back()->with('error', 'Método de pagamento inválido.');
+        }
+
+        // Atualiza o gateway de preferência
+        $order->update(['gateway' => $paymentMethodEnum->value]);
+
+        $gateway = \App\Services\Payments\PaymentGatewayFactory::resolve($paymentMethodEnum);
+        $paymentResponse = $gateway->generateCharge($order);
+
+        if (!$paymentResponse->success) {
+            return redirect()->route('client.dashboard')->with('error', $paymentResponse->message);
+        }
+
+        if ($paymentResponse->externalId) {
+            $order->update(['gateway_transaction_id' => $paymentResponse->externalId]);
+        }
+
+        if ($paymentResponse->redirectUrl) {
+            return redirect($paymentResponse->redirectUrl);
+        }
+
+        return redirect()->route('client.dashboard')->with('success', $paymentResponse->message);
+    }
 }
