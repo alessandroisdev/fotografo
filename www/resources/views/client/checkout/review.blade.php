@@ -41,6 +41,14 @@
                         @csrf
                         <input type="hidden" name="package_id" value="{{ $package->id }}">
                         
+                        @if(empty(Auth::user()->document))
+                        <div class="mb-4 text-start">
+                             <label class="form-label fw-bold text-white mb-2">Seu CPF (Para Faturamento) <span class="text-danger">*</span></label>
+                             <input type="text" name="document" class="form-control bg-dark text-white border-secondary" required placeholder="Digite apenas números">
+                             <div class="form-text text-white-50 small"><i class="bi bi-shield-lock me-1"></i> Necessário p/ emissão segura do Pix.</div>
+                        </div>
+                        @endif
+
                         <div class="mb-4">
                             <label class="form-label fw-bold text-white mb-2 d-block">Como deseja pagar?</label>
                             @foreach(\App\Enums\PaymentMethodEnum::cases() as $methodEnum)

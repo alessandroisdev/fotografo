@@ -37,8 +37,15 @@ class CheckoutController extends Controller
     {
         $request->validate([
             'package_id' => 'required|exists:packages,id',
-            'payment_method' => 'required|string'
+            'payment_method' => 'required|string',
+            'document' => 'nullable|string'
         ]);
+
+        if ($request->filled('document') && empty(Auth::user()->document)) {
+             $user = Auth::user();
+             $user->document = preg_replace('/[^0-9]/', '', $request->document);
+             $user->save();
+        }
 
         $paymentMethodEnum = \App\Enums\PaymentMethodEnum::tryFrom($request->payment_method);
         if (!$paymentMethodEnum) {
