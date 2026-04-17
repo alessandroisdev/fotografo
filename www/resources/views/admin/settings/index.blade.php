@@ -297,9 +297,30 @@
                                     <input type="password" class="form-control border-success" name="google_client_secret" value="{{ config('settings.google_client_secret') }}" autocomplete="off">
                                 </div>
                                 <div class="col-md-12">
-                                    <label class="form-label fw-bold">Refresh Token <i class="bi bi-question-circle" title="Autenticado no OAuth 2.0 Playground"></i></label>
-                                    <input type="password" class="form-control border-success" name="google_refresh_token" value="{{ config('settings.google_refresh_token') }}" autocomplete="off">
-                                    <small class="text-muted d-block mt-1">Este Token fornece permissões duradouras offline (Access Types offline).</small>
+                                    <h6 class="fw-bold mb-2">Autenticação Automática OAuth 2.0</h4>
+                                    @if(config('settings.google_client_id') && config('settings.google_client_secret'))
+                                        <div class="d-flex align-items-center mb-3">
+                                            <a href="{{ route('admin.settings.google.auth') }}" class="btn btn-outline-success fw-bold px-4 py-2 me-3">
+                                                <i class="bi bi-google"></i> Autenticar no Google Drive
+                                            </a>
+                                            @if(config('settings.google_refresh_token'))
+                                                <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> Máquina Conectada e Autenticada!</span>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <div class="alert alert-warning py-2 mb-3">
+                                            <i class="bi bi-exclamation-triangle"></i> Preencha e salve o Client ID e Client Secret primeiro para habilitar o botão de Autenticação Automática Mágica.
+                                        </div>
+                                    @endif
+                                    
+                                    <details class="w-100">
+                                        <summary class="text-muted small cursor-pointer" style="cursor: pointer;">Avançado: Entrar com o Refresh Token (Playground Mode) manualmente</summary>
+                                        <div class="mt-3 p-3 bg-light border border-success border-opacity-25 rounded">
+                                            <label class="form-label fw-bold">Refresh Token Físico Criptografado</label>
+                                            <input type="password" class="form-control border-success" name="google_refresh_token" value="{{ config('settings.google_refresh_token') }}" autocomplete="off">
+                                            <small class="text-muted d-block mt-1">Geralmente isso é preenchido automaticamente ao clicar no Botão acima, não digite se não souber operar a API Restritiva.</small>
+                                        </div>
+                                    </details>
                                 </div>
                                 <div class="col-md-12">
                                     <label class="form-label fw-bold">ID da Pasta Raiz (Folder ID)</label>

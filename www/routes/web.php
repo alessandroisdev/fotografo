@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\PhotoController;
 use App\Http\Controllers\Admin\PackageController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\GoogleAuthController;
 
 // Client
 use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
@@ -61,6 +62,10 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // Settings
     Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
     Route::post('settings', [SettingController::class, 'store'])->name('settings.store');
+    
+    // Google OAuth 2.0
+    Route::get('settings/google/auth', [GoogleAuthController::class, 'redirectToGoogle'])->name('settings.google.auth');
+    Route::get('settings/google/callback', [GoogleAuthController::class, 'handleGoogleCallback'])->name('settings.google.callback');
 });
 
 // Client Area Protected
