@@ -23,53 +23,94 @@ class MercadoPagoGateway implements PaymentGatewayInterface
     public function generateCharge(Order $order): PaymentResponse
     {
         try {
-            $dashboardUrl = route('client.dashboard');
-            // Mercado Pago (auto_return) regex rejects 'localhost', we must spoof loopback IP.
-            if (\Illuminate\Support\Facades\App::environment('local')) {
-                $dashboardUrl = str_replace('localhost', '127.0.0.1', $dashboardUrl);
+            // Branching implementation: se for PIX direto, usar API v1 Transparente do Mercado Pago.
+            // O Order salva o "gateway" como o payment_method_id selecionado na nossa base.
+            if ($order->gateway === \App\Enums\PaymentMethodEnum::PIX->value) {
+                // Monta Transparente API
+                $payload = [
+                    'transaction_amount' => round($order->total_amount, 2),
+                    'description' => 'Fotografias Finais - ' . $order->gallery->name,
+                    'payment_method_id' => 'pix',
+                    'payer' => [
+                        'email' => $order->user->email,
+                        'first_name' => explode(' ', $order->user->name)[0],
+                        'identification' => [
+                            'type' => 'CPF',
+                            'number' => preg_replace('/[^0-9]/', '', $order->user->document ?? '00000000000') // Fallback caso não há Doc
+                        ]
+                    ],
+                    'external_reference' => $order->uuid
+                ];
+
+                $response = \Illuminate\Support\Facades\Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $this->accessToken,
+                    'X-Idempotency-Key' => $order->uuid,
+                    'Content-Type' => 'application/json'
+                ])->timeout(15)->post('https://api.mercadopago.com/v1/payments', $payload);
+
+            } else {
+                // Checkout Pro padrão para Cartões e Boleto
+                $dashboardUrl = route('client.dashboard');
+                $payload = [
+                    'items' => [
+                        [
+                            'title' => 'Fotografias Finais - ' . $order->gallery->name,
+                            'description' => 'Acesso definitivo ao Acervo Fotográfico.',
+                            'quantity' => 1,
+                            'currency_id' => 'BRL',
+                            'unit_price' => round($order->total_amount, 2),
+                        ]
+                    ],
+                    'payer' => [
+                        'name' => $order->user->name,
+                        'email' => $order->user->email,
+                    ],
+                    'external_reference' => $order->uuid,
+                    'back_urls' => [
+                        'success' => $dashboardUrl,
+                        'pending' => $dashboardUrl,
+                        'failure' => $dashboardUrl
+                    ]
+                ];
+
+                if (!\Illuminate\Support\Facades\App::environment('local')) {
+                    $payload['auto_return'] = 'approved';
+                }
+
+                $response = \Illuminate\Support\Facades\Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $this->accessToken,
+                    'Content-Type' => 'application/json'
+                ])->timeout(15)->post('https://api.mercadopago.com/checkout/preferences', $payload);
             }
 
-            $response = \Illuminate\Support\Facades\Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->accessToken,
-                'Content-Type' => 'application/json'
-            ])->timeout(15)->post('https://api.mercadopago.com/checkout/preferences', [
-                'items' => [
-                    [
-                        'title' => 'Fotografias Finais - ' . $order->gallery->name,
-                        'description' => 'Acesso definitivo ao Acervo Fotográfico.',
-                        'quantity' => 1,
-                        'currency_id' => 'BRL',
-                        'unit_price' => round($order->total_amount, 2),
-                    ]
-                ],
-                'payer' => [
-                    'name' => $order->user->name,
-                    'email' => $order->user->email,
-                ],
-                'external_reference' => $order->uuid,
-                'back_urls' => [
-                    'success' => $dashboardUrl,
-                    'pending' => $dashboardUrl,
-                    'failure' => $dashboardUrl
-                ],
-                'auto_return' => 'approved' // Roteamento limpo do hub MP pra cá
-            ]);
-
             if ($response->failed()) {
-                Log::error('MercadoPago Preference Error', ['res' => $response->json()]);
-                return PaymentResponse::make(false, 'Integração indisponível com a malha do Mercado Pago no momento.');
+                Log::error('MercadoPago Checkout/Payment Error', ['res' => $response->json(), 'route' => $order->gateway]);
+                return PaymentResponse::make(false, 'Integração indisponível com a malha do Mercado Pago no momento (Verifique suas credenciais de Access Token ou pendências do titular na plataforma).');
             }
 
             $order->update(['status' => 'pending']);
 
-            $payload = $response->json();
-            $redirectKey = $this->isSandbox ? 'sandbox_init_point' : 'init_point';
+            $payloadRes = $response->json();
+            
+            // Tratamento de Resposta
+            if ($order->gateway === \App\Enums\PaymentMethodEnum::PIX->value) {
+                // Pagamento Pix Transparente
+                $redirectUrl = $payloadRes['point_of_interaction']['transaction_data']['ticket_url'] ?? null;
+                $externalId = $payloadRes['id'] ?? null;
+                $message = 'Redirecionando para o QR Code PIX (Mercado Pago)...';
+            } else {
+                // Preference de Cartão / Boleto
+                $redirectKey = $this->isSandbox ? 'sandbox_init_point' : 'init_point';
+                $redirectUrl = $payloadRes[$redirectKey] ?? null;
+                $externalId = $payloadRes['id'] ?? null; // ID da Preference
+                $message = 'Encaminhando ao Cofre Seguro Automático do Mercado Pago...';
+            }
 
             return PaymentResponse::make(
                 success: true,
-                message: 'Encaminhando ao Cofre Seguro do Mercado Pago',
-                redirectUrl: $payload[$redirectKey] ?? null,
-                externalId: $payload['id'] ?? null // Id da preferencia (Pode ser atualizada para Pay_Id no webhook)
+                message: $message,
+                redirectUrl: $redirectUrl,
+                externalId: $externalId
             );
 
         } catch (\Exception $e) {
