@@ -17,8 +17,15 @@ class DashboardController extends Controller
         $galleries = Gallery::where('user_id', $client->id)
                             ->where('status', '!=', 'draft')
                             ->withCount('photos')
+                            ->latest()
+                            ->get();
+                            
+        $orders = \App\Models\Order::where('user_id', $client->id)
+                            ->with(['package', 'gallery'])
+                            ->withCount('items')
+                            ->latest()
                             ->get();
 
-        return view('client.dashboard', compact('client', 'galleries'));
+        return view('client.dashboard', compact('client', 'galleries', 'orders'));
     }
 }

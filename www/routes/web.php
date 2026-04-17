@@ -55,7 +55,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::delete('galleries/{gallery}/photos/{photo}', [PhotoController::class, 'destroy'])->name('galleries.photos.destroy');
     
     Route::resource('packages', PackageController::class);
-    Route::resource('orders', OrderController::class)->only(['index', 'update']);
+    Route::resource('orders', OrderController::class)->only(['index', 'update', 'destroy']);
     // Settings
     Route::get('settings', [\App\Http\Controllers\Admin\SettingController::class, 'index'])->name('settings.index');
     Route::post('settings', [\App\Http\Controllers\Admin\SettingController::class, 'store'])->name('settings.store');
@@ -71,6 +71,10 @@ Route::middleware(['auth'])->prefix('client')->name('client.')->group(function (
     // Checkout Flow
     Route::post('/gallery/{uuid}/checkout', [ClientCheckoutController::class, 'review'])->name('checkout.review');
     Route::post('/gallery/{uuid}/order', [ClientCheckoutController::class, 'process'])->name('checkout.process');
+    
+    // Histórico Financeiro
+    Route::get('/order/{uuid}', [\App\Http\Controllers\Client\OrderController::class, 'show'])->name('orders.show');
+    Route::get('/order/{uuid}/download', [\App\Http\Controllers\Client\OrderController::class, 'downloadZip'])->name('orders.download');
 });
 
 // External Webhooks
