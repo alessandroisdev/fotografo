@@ -54,6 +54,11 @@
                 <div class="d-grid gap-2">
                     <a href="{{ route('client.galleries.show', $gallery->uuid) }}" target="_blank" class="btn btn-light fw-bold"><i class="bi bi-eye"></i> Visualizar Link Público</a>
                     <a href="{{ route('admin.galleries.edit', $gallery->id) }}" class="btn btn-outline-light fw-bold"><i class="bi bi-gear"></i> Editar Permissões</a>
+                    
+                    <form action="{{ route('admin.galleries.archive', $gallery->id) }}" method="POST" class="d-grid" onsubmit="return confirm('Deseja iniciar o arquivamento manual em nuvem de todas as fotos destina galeria? Esta operação é irreversível na HD Máquina.');">
+                        @csrf
+                        <button type="submit" class="btn btn-warning fw-bold text-dark"><i class="bi bi-cloud-arrow-up-fill"></i> Arquivar Fotos RAWs</button>
+                    </form>
                 </div>
             </div>
         </div>

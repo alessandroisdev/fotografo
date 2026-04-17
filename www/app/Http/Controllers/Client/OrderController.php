@@ -32,34 +32,67 @@ class OrderController extends Controller
             abort(403, 'A fatura ainda não foi confirmada pelo fotógrafo.');
         }
 
-        $zip = new ZipArchive();
         $zipFileName = 'Ensaio_Completo_' . substr($order->uuid, 0, 8) . '.zip';
-        
-        // Assegura que a pasta raiz temporária exista
-        $tempPath = storage_path('app/temp');
-        if (!file_exists($tempPath)) {
-            mkdir($tempPath, 0755, true);
-        }
-        
-        $zipPath = $tempPath . '/' . $zipFileName;
+        $zipsDir = storage_path('app/zips');
+        $zipPath = $zipsDir . '/' . $zipFileName;
 
+        if (!file_exists($zipsDir)) {
+            mkdir($zipsDir, 0755, true);
+        }
+
+        // Validação de Hospedagem (30 Dias Cache)
+        if (file_exists($zipPath)) {
+            $fileAgeDays = (time() - filemtime($zipPath)) / (60 * 60 * 24);
+            if ($fileAgeDays > 30) {
+                // Muito velho, excluir para forçar regeneração
+                unlink($zipPath);
+            } else {
+                // ZIP fresco ainda disponível
+                return response()->download($zipPath);
+            }
+        }
+
+        $zip = new ZipArchive();
         if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) === true) {
+            
+            // Subdiretório temporário para Downsync do S3/Drive
+            $tempRawPath = storage_path('app/temp_raws/' . $order->uuid);
+            if (!file_exists($tempRawPath)) {
+                mkdir($tempRawPath, 0755, true);
+            }
+
             foreach ($order->items as $item) {
-                // As fotos na origem são salvas por $file->store(), ou seja, o storage_driver é 'local' e a key da storage é original_path
                 if ($item->photo && Storage::disk($item->photo->storage_driver)->exists($item->photo->original_path)) {
                     
-                    $physicalPath = Storage::disk($item->photo->storage_driver)->path($item->photo->original_path);
-                    
-                    // Adiciona ao zip usando o nome descritivo amigável
-                    $zip->addFile($physicalPath, $item->photo->original_name);
+                    if ($item->photo->storage_driver !== 'local') {
+                        // Downsync massivo da Nuvem para o Servidor temporariamente
+                        $cloudFileStream = Storage::disk($item->photo->storage_driver)->readStream($item->photo->original_path);
+                        $tempLocalFilePath = $tempRawPath . '/' . basename($item->photo->original_path);
+                        
+                        file_put_contents($tempLocalFilePath, $cloudFileStream);
+                        if (is_resource($cloudFileStream)) { fclose($cloudFileStream); }
+                        
+                        $zip->addFile($tempLocalFilePath, $item->photo->original_name);
+                        
+                    } else {
+                        // Puxa direto do disco NATIVO se ainda não foi arquivado
+                        $physicalPath = Storage::disk('local')->path($item->photo->original_path);
+                        $zip->addFile($physicalPath, $item->photo->original_name);
+                    }
                 }
             }
             $zip->close();
+            
+            // Limpa arquivos pesados em Downsync temporário caso existam
+            if (file_exists($tempRawPath)) {
+                \Illuminate\Support\Facades\File::deleteDirectory($tempRawPath);
+            }
+
         } else {
-            return back()->with('error', 'Falha ao processar o formato Zip no Servidor.');
+            return back()->with('error', 'Falha estrutural ao empacotar os arquivos ZIP no Servidor.');
         }
 
-        // Realiza o Download em formato Binário e apaga o ZIP logo em seguida economizando HD
-        return response()->download($zipPath)->deleteFileAfterSend(true);
+        // Realiza o Download Padrão (Sem deletar na hora, preserva por 30 dias pro Gargalo)
+        return response()->download($zipPath);
     }
 }

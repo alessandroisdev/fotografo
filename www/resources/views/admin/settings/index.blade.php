@@ -17,6 +17,9 @@
             <a href="#company" data-bs-toggle="tab" class="list-group-item list-group-item-action border-0 rounded p-3">
                 <i class="bi bi-buildings-fill text-secondary me-2"></i> Dados Comerciais
             </a>
+            <a href="#cloud" data-bs-toggle="tab" class="list-group-item list-group-item-action border-0 rounded p-3">
+                <i class="bi bi-cloud-arrow-up-fill text-info me-2"></i> Nuvem e Arquivos
+            </a>
         </div>
     </div>
 
@@ -212,17 +215,98 @@
                     </div>
                 </div>
 
-                <!-- COMPANY -->
+                <!-- BUSINESS DATA -->
                 <div class="tab-pane fade p-4" id="company">
-                    <h5 class="fw-bold mb-3"><i class="bi bi-info-circle-fill text-secondary me-2"></i> Identificação do Fotógrafo</h5>
+                    <h5 class="fw-bold mb-4"><i class="bi bi-person-vcard text-secondary me-2"></i> Dados Visíveis no Portal</h5>
                     
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Nome / Título da Marca</label>
-                        <input type="text" class="form-control" name="site_title" value="{{ config('settings.site_title', 'Fotógrafo Pró') }}">
+                    <div class="row g-4">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-bold">Nome do Estúdio / Fotógrafo</label>
+                            <input type="text" class="form-control" name="studio_name" value="{{ config('settings.studio_name', 'Nome Padrão') }}">
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label fw-bold">WhatsApp Oficial <span class="badge bg-secondary">Op</span></label>
+                            <input type="text" class="form-control" name="studio_whatsapp" placeholder="Ex: 551199999999" value="{{ config('settings.studio_whatsapp') }}">
+                            <small class="text-muted">Injetará um balão automático de suporte.</small>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">WhatsApp / Contato Suporte (Rodapé do Cliente)</label>
-                        <input type="text" class="form-control mask-phone" name="support_whatsapp" value="{{ config('settings.support_whatsapp') }}">
+                </div>
+
+                <!-- CLOUD & ARCHIVE -->
+                <div class="tab-pane fade p-4" id="cloud">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-server text-info me-2"></i> Motor de Arquivamento (Nuvem)</h5>
+                    <div class="alert alert-light border border-info border-opacity-25 mb-4" role="alert">
+                        <i class="bi bi-info-circle-fill text-info me-2"></i> Transfira fotos brutas pesadas (RAWs) do seu VPS para provedores massivos em nuvem automaticamente. Quando um cliente comprar mais fotos, os geradores de ZIP farão a ponte oculta.
+                    </div>
+
+                    <div class="mb-4 p-3 bg-light rounded-3 border">
+                        <label class="form-label fw-bold text-dark">Nuvem Padrão de Arquivamento RAW</label>
+                        <select name="archive_disk" class="form-select bg-white">
+                            <option value="local" {{ config('settings.archive_disk', 'local') === 'local' ? 'selected' : '' }}>Servidor Local (Não Arquivar para Nuvem)</option>
+                            <option value="s3" {{ config('settings.archive_disk') === 's3' ? 'selected' : '' }}>Amazon AWS S3 / R2 Cloudflare (Recomendado)</option>
+                            <option value="google" {{ config('settings.archive_disk') === 'google' ? 'selected' : '' }}>Google Drive API (Básico 15GB)</option>
+                        </select>
+                        <small class="text-muted mt-2 d-block">Todas as Thumbnails públicas continuarão vivendo em <code>Local</code> sempre para altíssima performance.</small>
+                    </div>
+
+                    <ul class="nav nav-pills mt-3 mb-3 border-bottom pb-3" id="cloudTabs" role="tablist">
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold text-dark bg-transparent" id="s3-tab" data-bs-toggle="pill" data-bs-target="#s3" type="button" role="tab">Amazon S3 / R2</button>
+                      </li>
+                      <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold text-success bg-transparent" id="google-tab" data-bs-toggle="pill" data-bs-target="#google" type="button" role="tab">Google Drive</button>
+                      </li>
+                    </ul>
+
+                    <div class="tab-content">
+                        <!-- S3 CONFIGS -->
+                        <div class="tab-pane fade show active" id="s3" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">AWS Access Key ID</label>
+                                    <input type="text" class="form-control" name="s3_key" value="{{ config('settings.s3_key') }}" autocomplete="off">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">AWS Secret Access Key</label>
+                                    <input type="password" class="form-control" name="s3_secret" value="{{ config('settings.s3_secret') }}" autocomplete="off">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Region (Ex: us-east-1)</label>
+                                    <input type="text" class="form-control" name="s3_region" value="{{ config('settings.s3_region') }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Bucket Name</label>
+                                    <input type="text" class="form-control" name="s3_bucket" value="{{ config('settings.s3_bucket') }}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Endpoint <span class="badge bg-secondary">Op</span></label>
+                                    <input type="text" class="form-control" name="s3_endpoint" value="{{ config('settings.s3_endpoint') }}" placeholder="Para Cloudflare R2 / MinIO">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- GOOGLE DRIVE CONFIGS -->
+                        <div class="tab-pane fade" id="google" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Google Client ID</label>
+                                    <input type="text" class="form-control border-success" name="google_client_id" value="{{ config('settings.google_client_id') }}" autocomplete="off">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Google Client Secret</label>
+                                    <input type="password" class="form-control border-success" name="google_client_secret" value="{{ config('settings.google_client_secret') }}" autocomplete="off">
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label fw-bold">Refresh Token <i class="bi bi-question-circle" title="Autenticado no OAuth 2.0 Playground"></i></label>
+                                    <input type="password" class="form-control border-success" name="google_refresh_token" value="{{ config('settings.google_refresh_token') }}" autocomplete="off">
+                                    <small class="text-muted d-block mt-1">Este Token fornece permissões duradouras offline (Access Types offline).</small>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label fw-bold">ID da Pasta Raiz (Folder ID)</label>
+                                    <input type="text" class="form-control" name="google_folder_id" value="{{ config('settings.google_folder_id') }}" placeholder="Ex: 1A2b3C4d5E6f_T...">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

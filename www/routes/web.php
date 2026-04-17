@@ -47,6 +47,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     // Admin CRUDs
     Route::resource('clients', ClientController::class);
     Route::resource('galleries', GalleryController::class);
+    Route::post('galleries/{gallery}/archive', [GalleryController::class, 'archive'])->name('galleries.archive');
     
     // Upload, Poll, Delete & Toggle Photos
     Route::post('galleries/{gallery}/photos', [PhotoController::class, 'store'])->name('galleries.photos.store');
