@@ -11,13 +11,16 @@ class MercadoPagoGateway implements PaymentGatewayInterface
 {
     private bool $isSandbox;
     private string $publicKey;
-    private string $accessToken;
+    private string $baseUrl;
 
     public function __construct()
     {
         $this->isSandbox = config('settings.mercadopago_environment', 'sandbox') !== 'production';
         $this->publicKey = config('settings.mercadopago_public_key', '');
         $this->accessToken = config('settings.mercadopago_access_token', '');
+        
+        // As URLs em produção e sandbox no Mercado Pago V1 e Checkout são as mesmas, mas arquiteturadas dinamicamente
+        $this->baseUrl = 'https://api.mercadopago.com';
     }
 
     public function generateCharge(Order $order): PaymentResponse
@@ -52,7 +55,7 @@ class MercadoPagoGateway implements PaymentGatewayInterface
                     'Authorization' => 'Bearer ' . $this->accessToken,
                     'X-Idempotency-Key' => $order->uuid,
                     'Content-Type' => 'application/json'
-                ])->timeout(15)->post('https://api.mercadopago.com/v1/payments', $payload);
+                ])->timeout(15)->post("{$this->baseUrl}/v1/payments", $payload);
 
             } else {
                 // Checkout Pro padrão para Cartões e Boleto
@@ -86,7 +89,7 @@ class MercadoPagoGateway implements PaymentGatewayInterface
                 $response = \Illuminate\Support\Facades\Http::withHeaders([
                     'Authorization' => 'Bearer ' . $this->accessToken,
                     'Content-Type' => 'application/json'
-                ])->timeout(15)->post('https://api.mercadopago.com/checkout/preferences', $payload);
+                ])->timeout(15)->post("{$this->baseUrl}/checkout/preferences", $payload);
             }
 
             if ($response->failed()) {
@@ -143,7 +146,7 @@ class MercadoPagoGateway implements PaymentGatewayInterface
             $response = \Illuminate\Support\Facades\Http::withHeaders([
                 'X-Idempotency-Key' => $order->uuid . rand(),
                 'Authorization' => 'Bearer ' . $this->accessToken,
-            ])->timeout(15)->post('https://api.mercadopago.com/v1/payments/' . $order->gateway_transaction_id . '/refunds', $payload);
+            ])->timeout(15)->post("{$this->baseUrl}/v1/payments/" . $order->gateway_transaction_id . '/refunds', $payload);
 
             if ($response->failed()) {
                 Log::error('MercadoPago Refund Fallback', ['b' => $response->json()]);

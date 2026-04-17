@@ -91,9 +91,11 @@ class PaymentWebhookController extends Controller
 
             // Chamada reversa de segurança: Pegamos os detalhes diretamente na malha do Mercado Pago pra evitar spoofs
             $accessToken = config('settings.mercadopago_access_token', '');
+            $baseUrl = 'https://api.mercadopago.com';
+
             $response = \Illuminate\Support\Facades\Http::withHeaders([
                 'Authorization' => 'Bearer ' . $accessToken
-            ])->timeout(10)->get("https://api.mercadopago.com/v1/payments/{$paymentId}");
+            ])->timeout(10)->get("{$baseUrl}/v1/payments/{$paymentId}");
 
             if ($response->successful()) {
                 $payment = $response->json();

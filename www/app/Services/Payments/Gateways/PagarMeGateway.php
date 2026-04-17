@@ -11,11 +11,14 @@ class PagarMeGateway implements PaymentGatewayInterface
 {
     private bool $isSandbox;
     private string $apiKey;
+    private string $baseUrl;
 
     public function __construct()
     {
         $this->isSandbox = config('settings.pagarme_environment', 'sandbox') !== 'production';
         $this->apiKey = config('settings.pagarme_api_key', '');
+        
+        $this->baseUrl = 'https://api.pagar.me/core/v5';
     }
 
     public function generateCharge(Order $order): PaymentResponse
@@ -72,7 +75,7 @@ class PagarMeGateway implements PaymentGatewayInterface
 
                 $response = \Illuminate\Support\Facades\Http::withBasicAuth($this->apiKey, '')
                     ->timeout(15)
-                    ->post('https://api.pagar.me/core/v5/orders', $payload);
+                    ->post("{$this->baseUrl}/orders", $payload);
 
                 if ($response->failed()) {
                     Log::error('PagarMe API Pix Error', ['body' => $response->json()]);
@@ -113,7 +116,7 @@ class PagarMeGateway implements PaymentGatewayInterface
 
                 $response = \Illuminate\Support\Facades\Http::withBasicAuth($this->apiKey, '')
                     ->timeout(15)
-                    ->post('https://api.pagar.me/core/v5/paymentlinks', $payload);
+                    ->post("{$this->baseUrl}/paymentlinks", $payload);
 
                 if ($response->failed()) {
                     Log::error('PagarMe API Payment Link Error', ['body' => $response->json()]);
@@ -152,7 +155,7 @@ class PagarMeGateway implements PaymentGatewayInterface
             // O webhook substituiu gateway_transaction_id pra o "charge_id" (ch_...)
             $response = \Illuminate\Support\Facades\Http::withBasicAuth($this->apiKey, '')
                 ->timeout(15)
-                ->delete('https://api.pagar.me/core/v5/charges/' . $order->gateway_transaction_id, $payload);
+                ->delete("{$this->baseUrl}/charges/" . $order->gateway_transaction_id, $payload);
 
             if ($response->failed()) {
                 Log::error('PagarMe Refund Error', ['b' => $response->json()]);
