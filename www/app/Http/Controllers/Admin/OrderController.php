@@ -29,7 +29,8 @@ class OrderController extends Controller
                          return '<span class="badge bg-warning text-dark">Pendente</span>';
                     })
                     ->addColumn('action', function($row){
-                         $btn = '';
+                         $btn = '<a href="'.route('admin.orders.show', $row->id).'" class="btn btn-info btn-sm me-1" title="Ver Seleção do Cliente"><i class="bi bi-card-image"></i> Ver Fotos</a>';
+                         
                          if($row->status == 'pending') {
                              $btn .= '<form action="'.route('admin.orders.update', $row->id).'" method="POST" class="d-inline">
                                       '.csrf_field().method_field('PATCH').'
@@ -37,7 +38,6 @@ class OrderController extends Controller
                                       <button type="submit" class="btn btn-success btn-sm me-1" title="Aprovar Pagamento"><i class="bi bi-check-circle"></i> Aprovar</button>
                                       </form>';
                          } else if ($row->status == 'paid') {
-                             $btn .= '<a href="/client/gallery/'.$row->gallery->uuid.'" class="btn btn-primary btn-sm me-1" target="_blank" title="Acessar Galeria do Cliente"><i class="bi bi-eye"></i></a>';
                              $btn .= '<form action="'.route('admin.orders.update', $row->id).'" method="POST" class="d-inline">
                                       '.csrf_field().method_field('PATCH').'
                                       <input type="hidden" name="status" value="pending">
@@ -57,6 +57,12 @@ class OrderController extends Controller
         }
         
         return view('admin.orders.index');
+    }
+
+    public function show($id)
+    {
+        $order = Order::with(['items.photo', 'package', 'gallery', 'user'])->findOrFail($id);
+        return view('admin.orders.show', compact('order'));
     }
 
     public function update(Request $request, Order $order)

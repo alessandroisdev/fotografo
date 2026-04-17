@@ -55,7 +55,7 @@ Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () 
     Route::delete('galleries/{gallery}/photos/{photo}', [PhotoController::class, 'destroy'])->name('galleries.photos.destroy');
     
     Route::resource('packages', PackageController::class);
-    Route::resource('orders', OrderController::class)->only(['index', 'update', 'destroy']);
+    Route::resource('orders', OrderController::class)->only(['index', 'update', 'destroy', 'show']);
     // Settings
     Route::get('settings', [\App\Http\Controllers\Admin\SettingController::class, 'index'])->name('settings.index');
     Route::post('settings', [\App\Http\Controllers\Admin\SettingController::class, 'store'])->name('settings.store');
