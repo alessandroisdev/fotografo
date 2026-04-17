@@ -36,6 +36,11 @@ class ClientController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge([
+            'document' => preg_replace('/[^0-9]/', '', $request->document),
+            'phone' => preg_replace('/[^0-9]/', '', $request->phone),
+        ]);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -50,5 +55,51 @@ class ClientController extends Controller
         User::create($validated);
 
         return redirect()->route('admin.clients.index')->with('success', 'Cliente salvo com sucesso!');
+    }
+
+    public function edit(User $client)
+    {
+        // Certifica que não estamos editando o admin acidentalmente se a rota for manipulada.
+        if ($client->role !== 'client') {
+            abort(403, 'Acesso Negado.');
+        }
+        return view('admin.clients.edit', compact('client'));
+    }
+
+    public function update(Request $request, User $client)
+    {
+        if ($client->role !== 'client') {
+            abort(403);
+        }
+
+        $request->merge([
+            'document' => preg_replace('/[^0-9]/', '', $request->document),
+            'phone' => preg_replace('/[^0-9]/', '', $request->phone),
+        ]);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $client->id,
+            'document' => 'nullable|string|max:20',
+            'phone' => 'nullable|string|max:20',
+        ]);
+
+        // Se uma nova senha for fornecida opcionalmente:
+        if ($request->filled('password')) {
+            $validated['password'] = Hash::make($request->password);
+        }
+
+        $client->update($validated);
+
+        return redirect()->route('admin.clients.index')->with('success', 'Cliente atualizado com sucesso!');
+    }
+
+    public function destroy(User $client)
+    {
+        if ($client->role !== 'client') {
+            abort(403);
+        }
+        $client->delete(); // Soft delete é suportado devido à migration
+        return redirect()->route('admin.clients.index')->with('success', 'Cliente desativado permanentemente.');
     }
 }

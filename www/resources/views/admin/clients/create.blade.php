@@ -40,4 +40,37 @@
         </form>
     </div>
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const docInput = document.getElementById('document');
+        const phoneInput = document.getElementById('phone');
+        
+        if(docInput) {
+            docInput.addEventListener('input', function(e) {
+                let v = e.target.value.replace(/\D/g, "");
+                if (v.length <= 11) { // CPF
+                    v = v.replace(/(\d{3})(\d)/, "$1.$2");
+                    v = v.replace(/(\d{3})(\d)/, "$1.$2");
+                    v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+                } else { // CNPJ
+                    v = v.replace(/^(\d{2})(\d)/, "$1.$2");
+                    v = v.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3");
+                    v = v.replace(/\.(\d{3})(\d)/, ".$1/$2");
+                    v = v.replace(/(\d{4})(\d)/, "$1-$2");
+                }
+                e.target.value = v;
+            });
+        }
+        
+        if(phoneInput) {
+            phoneInput.addEventListener('input', function(e) {
+                let v = e.target.value.replace(/\D/g, "");
+                v = v.replace(/^(\d{2})(\d)/g, "($1) $2");
+                v = v.replace(/(\d)(\d{4})$/, "$1-$2");
+                e.target.value = v;
+            });
+        }
+    });
+</script>
 @endsection

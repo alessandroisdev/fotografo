@@ -2,12 +2,21 @@
 
 use Illuminate\Support\Facades\Route;
 
+// Auth
+use App\Http\Controllers\AuthController;
+
+// Admin
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\GalleryController;
 use App\Http\Controllers\Admin\PhotoController;
+use App\Http\Controllers\Admin\PackageController;
+use App\Http\Controllers\Admin\OrderController;
 
-use App\Http\Controllers\AuthController;
+// Client
+use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
+use App\Http\Controllers\Client\GalleryController as ClientGalleryController;
+use App\Http\Controllers\Client\CheckoutController as ClientCheckoutController;
 
 Route::get('/', function () {
     return view('home');
@@ -17,7 +26,7 @@ Route::get('/', function () {
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-Route::get('/logout', [AuthController::class, 'logout']); // Forca bruta em links a href
+Route::get('/logout', [AuthController::class, 'logout']); // Força bruta em links
 
 // Admin Area Protected
 Route::get('/admin', function() { return redirect()->route('admin.dashboard'); })->middleware('auth');
@@ -25,29 +34,15 @@ Route::get('/admin', function() { return redirect()->route('admin.dashboard'); }
 Route::middleware(['auth'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
-    // Clients CRUD
+    // Admin CRUDs
     Route::resource('clients', ClientController::class);
-    
-    // Galleries CRUD
     Route::resource('galleries', GalleryController::class);
-    
-    // Photo Upload Endpoint via Dropzone
     Route::post('galleries/{gallery}/photos', [PhotoController::class, 'store'])->name('galleries.photos.store');
-    
-    // Packages CRUD
-    use App\Http\Controllers\Admin\PackageController;
     Route::resource('packages', PackageController::class);
-    
-    // Orders / Faturas Management
-    use App\Http\Controllers\Admin\OrderController;
     Route::resource('orders', OrderController::class)->only(['index', 'update']);
 });
 
 // Client Area Protected
-use App\Http\Controllers\Client\DashboardController as ClientDashboardController;
-use App\Http\Controllers\Client\GalleryController as ClientGalleryController;
-use App\Http\Controllers\Client\CheckoutController as ClientCheckoutController;
-
 Route::get('/client', function() { return redirect()->route('client.dashboard'); })->middleware('auth');
 
 Route::middleware(['auth'])->prefix('client')->name('client.')->group(function () {

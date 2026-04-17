@@ -50,12 +50,25 @@
             '<i class="bi bi-trash-fill me-2"></i> Deletar Cliente', 
             'Tem certeza que deseja apagar este cliente permanentemente? A conta será desativada mas os dados isolados serão retidos no banco se houver galerias.',
             function() {
-                // Lógica de Submissão Delete passaria aqui (Ex: Formulário Oculto)
-                console.log("Deletar ID Concluído pelo Modal: ", id);
+                // Criação dinâmica do Formulário para bater no endpoint Destroy
+                let form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/admin/clients/' + id;
                 
-                // MOCKUP Feedback Toast:
-                // Criar formulário programaticamente, injetar DELETE token, e dar submit.
-                // Mas por enquanto vamos apenas mostrar no console durante o test.
+                let csrf = document.createElement('input');
+                csrf.type = 'hidden';
+                csrf.name = '_token';
+                csrf.value = '{{ csrf_token() }}';
+                
+                let method = document.createElement('input');
+                method.type = 'hidden';
+                method.name = '_method';
+                method.value = 'DELETE';
+                
+                form.appendChild(csrf);
+                form.appendChild(method);
+                document.body.appendChild(form);
+                form.submit();
             }
         );
     }
