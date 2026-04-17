@@ -47,7 +47,11 @@
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav ms-auto mt-2 mt-lg-0">
                         <li class="nav-item">
-                            <a class="nav-link fw-bold text-primary" href="{{ url('/') }}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Ver Site</a>
+                            @if(isset($gallery) && isset($gallery->uuid))
+                                <a class="nav-link fw-bold text-primary" href="{{ route('client.galleries.show', $gallery->uuid) }}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Ver Galeria Atual</a>
+                            @else
+                                <a class="nav-link fw-bold text-primary" href="{{ url('/') }}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> Ver Site</a>
+                            @endif
                         </li>
                     </ul>
                 </div>
