@@ -45,7 +45,7 @@ class AuthController extends Controller
     private function authenticatedRedirect()
     {
         $role = Auth::user()->role;
-        if ($role === 'admin' || $role === 'photographer') {
+        if ($role === \App\Enums\UserRoleEnum::ADMIN) {
             return redirect()->route('admin.dashboard');
         }
         

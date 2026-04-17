@@ -24,28 +24,28 @@ class OrderController extends Controller
                          return 'R$ ' . number_format($row->total_amount, 2, ',', '.');
                     })
                     ->editColumn('status', function($row) {
-                         if($row->status == 'paid') return '<span class="badge bg-success">Pago</span>';
-                         if($row->status == 'cancelled') return '<span class="badge bg-danger">Cancelado</span>';
+                         if($row->status === \App\Enums\OrderStatusEnum::PAID) return '<span class="badge bg-success">Pago</span>';
+                         if($row->status === \App\Enums\OrderStatusEnum::CANCELLED) return '<span class="badge bg-danger">Cancelado</span>';
                          return '<span class="badge bg-warning text-dark">Pendente</span>';
                     })
                     ->addColumn('action', function($row){
                          $btn = '<a href="'.route('admin.orders.show', $row->id).'" class="btn btn-info btn-sm me-1" title="Ver Seleção do Cliente"><i class="bi bi-card-image"></i> Ver Fotos</a>';
                          
-                         if($row->status == 'pending') {
+                         if($row->status === \App\Enums\OrderStatusEnum::PENDING) {
                              $btn .= '<form action="'.route('admin.orders.update', $row->id).'" method="POST" class="d-inline">
                                       '.csrf_field().method_field('PATCH').'
-                                      <input type="hidden" name="status" value="paid">
+                                      <input type="hidden" name="status" value="'.\App\Enums\OrderStatusEnum::PAID->value.'">
                                       <button type="submit" class="btn btn-success btn-sm me-1" title="Aprovar Pagamento"><i class="bi bi-check-circle"></i> Aprovar</button>
                                       </form>';
-                         } else if ($row->status == 'paid') {
+                         } else if ($row->status === \App\Enums\OrderStatusEnum::PAID) {
                              $btn .= '<form action="'.route('admin.orders.update', $row->id).'" method="POST" class="d-inline">
                                       '.csrf_field().method_field('PATCH').'
-                                      <input type="hidden" name="status" value="pending">
+                                      <input type="hidden" name="status" value="'.\App\Enums\OrderStatusEnum::PENDING->value.'">
                                       <button type="submit" class="btn btn-warning btn-sm me-1" title="Estornar para Pendente (Manual)"><i class="bi bi-arrow-counterclockwise"></i></button>
                                       </form>';
                              $btn .= '<form action="'.route('admin.orders.update', $row->id).'" method="POST" class="d-inline" onsubmit="return confirm(\'Isso acionará estorno no Gateway se aplicável (Ex: PIX Asaas). Continuar?\');">
                                       '.csrf_field().method_field('PATCH').'
-                                      <input type="hidden" name="status" value="cancelled">
+                                      <input type="hidden" name="status" value="'.\App\Enums\OrderStatusEnum::CANCELLED->value.'">
                                       <button type="submit" class="btn btn-danger btn-sm me-1" title="Cancelar Venda e Estornar"><i class="bi bi-x-octagon"></i></button>
                                       </form>';
                          }
@@ -73,10 +73,12 @@ class OrderController extends Controller
     public function update(Request $request, Order $order)
     {
         $validated = $request->validate([
-            'status' => 'required|in:pending,paid,cancelled'
+            'status' => [\Illuminate\Validation\Rules\Enum::class, \App\Enums\OrderStatusEnum::class]
         ]);
 
-        if ($validated['status'] == 'cancelled' && $order->status == 'paid') {
+        $statusEnum = \App\Enums\OrderStatusEnum::tryFrom($request->status);
+
+        if ($statusEnum === \App\Enums\OrderStatusEnum::CANCELLED && $order->status === \App\Enums\OrderStatusEnum::PAID) {
             // Estorno Financeiro Real
             try {
                  $methodEnum = \App\Enums\PaymentMethodEnum::tryFrom($order->gateway);
@@ -91,8 +93,8 @@ class OrderController extends Controller
         }
 
         $order->update([
-            'status' => $validated['status'],
-            'paid_at' => $validated['status'] == 'paid' ? now() : null
+            'status' => $statusEnum,
+            'paid_at' => $statusEnum === \App\Enums\OrderStatusEnum::PAID ? now() : null
         ]);
         
         return redirect()->route('admin.orders.index')->with('success', 'Status da Fatura modificado com sucesso!');

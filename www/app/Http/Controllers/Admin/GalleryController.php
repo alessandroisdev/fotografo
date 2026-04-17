@@ -35,7 +35,7 @@ class GalleryController extends Controller
 
     public function create()
     {
-        $clients = User::where('role', 'client')->get();
+        $clients = User::where('role', \App\Enums\UserRoleEnum::CLIENT)->get();
         return view('admin.galleries.create', compact('clients'));
     }
 
@@ -48,7 +48,7 @@ class GalleryController extends Controller
         ]);
 
         $validated['uuid'] = Str::uuid()->toString();
-        $validated['status'] = 'draft';
+        $validated['status'] = \App\Enums\GalleryStatusEnum::DRAFT;
 
         $gallery = Gallery::create($validated);
 
@@ -66,7 +66,7 @@ class GalleryController extends Controller
 
     public function edit(Gallery $gallery)
     {
-        $clients = User::where('role', 'client')->get();
+        $clients = User::where('role', \App\Enums\UserRoleEnum::CLIENT)->get();
         return view('admin.galleries.edit', compact('gallery', 'clients'));
     }
 
@@ -76,8 +76,10 @@ class GalleryController extends Controller
             'user_id' => 'required|exists:users,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'status' => 'required|in:draft,published,archived'
+            'status' => [\Illuminate\Validation\Rules\Enum::class, \App\Enums\GalleryStatusEnum::class]
         ]);
+
+        $validated['status'] = \App\Enums\GalleryStatusEnum::tryFrom($request->status);
 
         $gallery->update($validated);
 

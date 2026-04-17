@@ -24,9 +24,9 @@
             <div class="card-body p-4 text-center d-flex flex-column justify-content-center">
                 <h5 class="fw-bold mb-3">Status do Pagamento</h5>
                 <div>
-                     @if($order->status == 'paid')
+                     @if($order->status === \App\Enums\OrderStatusEnum::PAID)
                          <span class="badge bg-success fs-5 px-4 py-2 rounded-pill shadow-sm"><i class="bi bi-check-circle"></i> Venda Aprovada</span>
-                     @elseif($order->status == 'cancelled')
+                     @elseif($order->status === \App\Enums\OrderStatusEnum::CANCELLED)
                          <span class="badge bg-danger fs-5 px-4 py-2 rounded-pill shadow-sm"><i class="bi bi-x-circle"></i> Fatura Cancelada</span>
                      @else
                          <span class="badge bg-warning text-dark fs-5 px-4 py-2 rounded-pill shadow-sm"><i class="bi bi-hourglass-split"></i> Aguardando Pagamento</span>
@@ -70,7 +70,7 @@
                     @endforeach
                 </div>
                 
-                @if($order->status == 'paid')
+                @if($order->status === \App\Enums\OrderStatusEnum::PAID)
                 <div class="mt-5 text-center bg-light p-4 rounded-3 border">
                      <h6 class="fw-bold text-success mb-2"><i class="bi bi-check-circle-fill me-1"></i> Pacote Finalizado e Pago</h6>
                      <p class="text-muted small mb-0">As imagens marcadas já se encontram isoladas na Área do Cliente e no ZIP de Download Autorizado dele.</p>

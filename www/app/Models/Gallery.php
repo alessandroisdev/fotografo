@@ -11,6 +11,10 @@ class Gallery extends Model
     
     protected $guarded = [];
 
+    protected $casts = [
+        'status' => \App\Enums\GalleryStatusEnum::class,
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);

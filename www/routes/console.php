@@ -8,7 +8,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 \Illuminate\Support\Facades\Schedule::call(function () {
-    \App\Models\Order::where('status', 'pending')
+    \App\Models\Order::where('status', \App\Enums\OrderStatusEnum::PENDING)
          ->where('created_at', '<', \Carbon\Carbon::now()->subDays(7))
-         ->update(['status' => 'cancelled']);
+         ->update(['status' => \App\Enums\OrderStatusEnum::CANCELLED]);
 })->daily()->name('cancel-expired-orders')->withoutOverlapping();

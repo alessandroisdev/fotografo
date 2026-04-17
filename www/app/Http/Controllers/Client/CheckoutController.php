@@ -74,7 +74,7 @@ class CheckoutController extends Controller
             'included_photos' => min($totalSelected, $package->included_photos_count),
             'extra_photos' => $extraPhotos,
             'total_amount' => $totalAmount,
-            'status' => 'pending',
+            'status' => \App\Enums\OrderStatusEnum::PENDING,
             'gateway' => $paymentMethodEnum->value // Guarda se é PIX, Boleto ou Cartão
         ]);
 

@@ -10,6 +10,22 @@ use App\Models\Order;
 class PaymentWebhookController extends Controller
 {
     /**
+     * Dispatcher Dinâmico de Webhooks
+     */
+    public function handle(Request $request, string $gateway)
+    {
+        $gatewayMethod = strtolower($gateway);
+
+        // Dispara o método correspondente ex: 'asaas', 'stripe', se existir.
+        if (method_exists($this, $gatewayMethod)) {
+            return $this->$gatewayMethod($request);
+        }
+
+        Log::error("Webhook Gateway Inválido Invocado: {$gateway}");
+        return response()->json(['status' => 'error', 'message' => 'Gateway not supported'], 400);
+    }
+
+    /**
      * Endpoint receiver for Asaas Events
      */
     public function asaas(Request $request)
@@ -37,9 +53,9 @@ class PaymentWebhookController extends Controller
         // 4. Processar Eventos de Recebimento
         if (in_array($event, ['PAYMENT_RECEIVED', 'PAYMENT_CONFIRMED'])) {
             // Impedir processamento duplicado
-            if ($order->status !== 'paid') {
+            if ($order->status !== \App\Enums\OrderStatusEnum::PAID) {
                 $order->update([
-                    'status' => 'paid',
+                    'status' => \App\Enums\OrderStatusEnum::PAID,
                     'paid_at' => now(),
                 ]);
                 Log::info('Pedido UUID ' . $orderUuid . ' marcado como PAID via Webhook!');
@@ -48,7 +64,7 @@ class PaymentWebhookController extends Controller
             }
         } elseif (in_array($event, ['PAYMENT_OVERDUE', 'PAYMENT_DELETED', 'PAYMENT_REFUNDED'])) {
              // Opções secundárias (Estornos)
-             $order->update(['status' => 'cancelled']);
+             $order->update(['status' => \App\Enums\OrderStatusEnum::CANCELLED]);
              Log::info('Pedido UUID ' . $orderUuid . ' CANCELADO via Webhook!');
         }
 
@@ -84,11 +100,11 @@ class PaymentWebhookController extends Controller
                         // Sem isso, o admin nunca conseguirá apertar o botão [Estornar Fatura MP].
                         $order->update(['gateway_transaction_id' => $paymentId]);
 
-                        if ($status === 'approved' && $order->status !== 'paid') {
-                            $order->update(['status' => 'paid', 'paid_at' => now()]);
+                        if ($status === 'approved' && $order->status !== \App\Enums\OrderStatusEnum::PAID) {
+                            $order->update(['status' => \App\Enums\OrderStatusEnum::PAID, 'paid_at' => now()]);
                             Log::info("Pedido {$orderUuid} Pago via MP!");
                         } elseif (in_array($status, ['refunded', 'cancelled', 'rejected'])) {
-                            $order->update(['status' => 'cancelled']);
+                            $order->update(['status' => \App\Enums\OrderStatusEnum::CANCELLED]);
                         }
                     }
                 }
@@ -115,10 +131,10 @@ class PaymentWebhookController extends Controller
 
             if ($orderUuid) {
                 $order = Order::where('uuid', $orderUuid)->first();
-                if ($order && $order->status !== 'paid') {
+                if ($order && $order->status !== \App\Enums\OrderStatusEnum::PAID) {
                     // Atualizamos o gateway_transaction_id para o Intent! (cs_ pra pi_)
                     $order->update([
-                        'status' => 'paid',
+                        'status' => \App\Enums\OrderStatusEnum::PAID,
                         'paid_at' => now(),
                         'gateway_transaction_id' => $paymentIntentId 
                     ]);
@@ -129,8 +145,8 @@ class PaymentWebhookController extends Controller
             $paymentIntentId = $dataObj['payment_intent'] ?? null;
             if ($paymentIntentId) {
                  $order = Order::where('gateway_transaction_id', $paymentIntentId)->first();
-                 if ($order && $order->status !== 'cancelled') {
-                      $order->update(['status' => 'cancelled']);
+                 if ($order && $order->status !== \App\Enums\OrderStatusEnum::CANCELLED) {
+                      $order->update(['status' => \App\Enums\OrderStatusEnum::CANCELLED]);
                       Log::info("Pedido {$order->uuid} Estornado e Cancelado pelo reflexo do Stripe.");
                  }
             }
@@ -165,12 +181,12 @@ class PaymentWebhookController extends Controller
                  $order = Order::where('uuid', $orderUuid)->first();
             }
 
-            if (isset($order) && $order && $order->status !== 'paid') {
+            if (isset($order) && $order && $order->status !== \App\Enums\OrderStatusEnum::PAID) {
                  // Agora salvamos o CAPTURE ID real para podermos emitir o estorno depois pelo painel
                  $captureId = $resource['id'];
                  
                  $order->update([
-                     'status' => 'paid',
+                     'status' => \App\Enums\OrderStatusEnum::PAID,
                      'paid_at' => now(),
                      'gateway_transaction_id' => $captureId
                  ]);
@@ -188,8 +204,8 @@ class PaymentWebhookController extends Controller
                  $order = Order::where('gateway_transaction_id', $resource['id'])->first();
             }
 
-            if ($order && $order->status !== 'cancelled') {
-                 $order->update(['status' => 'cancelled']);
+            if ($order && $order->status !== \App\Enums\OrderStatusEnum::CANCELLED) {
+                 $order->update(['status' => \App\Enums\OrderStatusEnum::CANCELLED]);
                  Log::info("Pedido {$order->uuid} cancelado por Reflexo PayPal.");
             }
         }
@@ -215,9 +231,9 @@ class PaymentWebhookController extends Controller
 
             if ($orderUuid) {
                  $order = Order::where('uuid', $orderUuid)->first();
-                 if ($order && $order->status !== 'paid') {
+                 if ($order && $order->status !== \App\Enums\OrderStatusEnum::PAID) {
                      $order->update([
-                         'status' => 'paid',
+                         'status' => \App\Enums\OrderStatusEnum::PAID,
                          'paid_at' => now(),
                          'gateway_transaction_id' => $chargeId 
                      ]);
@@ -234,8 +250,8 @@ class PaymentWebhookController extends Controller
                      $order = Order::where('uuid', $data['code'])->first();
                 }
 
-                if ($order && $order->status !== 'cancelled') {
-                     $order->update(['status' => 'cancelled']);
+                if ($order && $order->status !== \App\Enums\OrderStatusEnum::CANCELLED) {
+                     $order->update(['status' => \App\Enums\OrderStatusEnum::CANCELLED]);
                      Log::info("Pedido {$order->uuid} cancelado por Reflexo Pagar.Me.");
                 }
             }

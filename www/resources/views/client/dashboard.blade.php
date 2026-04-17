@@ -60,9 +60,9 @@
                                 <h5 class="fw-bold mb-1"><i class="bi bi-receipt me-2"></i> Pedido #{{ substr($order->uuid, 0, 8) }}</h5>
                                 <span class="badge bg-secondary opacity-75">{{ $order->created_at->format('d/m/Y H:i') }}</span>
                             </div>
-                            @if($order->status == 'paid')
+                            @if($order->status === \App\Enums\OrderStatusEnum::PAID)
                                 <span class="badge bg-success px-3 py-2 rounded-pill"><i class="bi bi-check-circle me-1"></i> Aprovado</span>
-                            @elseif($order->status == 'cancelled')
+                            @elseif($order->status === \App\Enums\OrderStatusEnum::CANCELLED)
                                 <span class="badge bg-danger px-3 py-2 rounded-pill"><i class="bi bi-x-circle me-1"></i> Cancelado</span>
                             @else
                                 <span class="badge bg-warning text-dark px-3 py-2 rounded-pill"><i class="bi bi-hourglass-split me-1"></i> Aguardando Pgto</span>
@@ -83,7 +83,7 @@
                         </div>
 
                         <div class="d-grid gap-2">
-                             @if($order->status == 'paid')
+                             @if($order->status === \App\Enums\OrderStatusEnum::PAID)
                                  <a href="{{ route('client.orders.download', $order->uuid) }}" class="btn btn-primary rounded-pill fw-bold"><i class="bi bi-file-earmark-zip-fill me-2"></i> Baixar ZIP em Alta Qualidade</a>
                                  <a href="{{ route('client.orders.show', $order->uuid) }}" class="btn btn-outline-light rounded-pill"><i class="bi bi-eye"></i> Visualizar Minhas Fotos</a>
                              @else

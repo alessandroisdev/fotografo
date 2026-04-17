@@ -14,7 +14,7 @@ class ClientController extends Controller
     public function index(Request $request)
     {
         if ($request->ajax()) {
-            $data = User::where('role', 'client')->select('*');
+            $data = User::where('role', \App\Enums\UserRoleEnum::CLIENT)->select('*');
             return Datatables::of($data)
                     ->addIndexColumn()
                     ->addColumn('action', function($row){
@@ -48,7 +48,7 @@ class ClientController extends Controller
             'phone' => 'nullable|string|max:20',
         ]);
 
-        $validated['role'] = 'client';
+        $validated['role'] = \App\Enums\UserRoleEnum::CLIENT;
         $validated['uuid'] = Str::uuid()->toString();
         $validated['password'] = Hash::make(Str::random(12)); // Senha inicial randômica
 
@@ -60,7 +60,7 @@ class ClientController extends Controller
     public function edit(User $client)
     {
         // Certifica que não estamos editando o admin acidentalmente se a rota for manipulada.
-        if ($client->role !== 'client') {
+        if ($client->role !== \App\Enums\UserRoleEnum::CLIENT) {
             abort(403, 'Acesso Negado.');
         }
         return view('admin.clients.edit', compact('client'));
@@ -68,7 +68,7 @@ class ClientController extends Controller
 
     public function update(Request $request, User $client)
     {
-        if ($client->role !== 'client') {
+        if ($client->role !== \App\Enums\UserRoleEnum::CLIENT) {
             abort(403);
         }
 
@@ -96,7 +96,7 @@ class ClientController extends Controller
 
     public function destroy(User $client)
     {
-        if ($client->role !== 'client') {
+        if ($client->role !== \App\Enums\UserRoleEnum::CLIENT) {
             abort(403);
         }
         $client->delete(); // Soft delete é suportado devido à migration

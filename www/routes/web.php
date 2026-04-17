@@ -77,9 +77,6 @@ Route::middleware(['auth'])->prefix('client')->name('client.')->group(function (
     Route::get('/order/{uuid}/download', [\App\Http\Controllers\Client\OrderController::class, 'downloadZip'])->name('orders.download');
 });
 
-// External Webhooks
-Route::post('/webhooks/asaas', [\App\Http\Controllers\Webhooks\PaymentWebhookController::class, 'asaas']);
-Route::post('/webhooks/mercadopago', [\App\Http\Controllers\Webhooks\PaymentWebhookController::class, 'mercadopago']);
-Route::post('/webhooks/stripe', [\App\Http\Controllers\Webhooks\PaymentWebhookController::class, 'stripe']);
-Route::post('/webhooks/paypal', [\App\Http\Controllers\Webhooks\PaymentWebhookController::class, 'paypal']);
-Route::post('/webhooks/pagarme', [\App\Http\Controllers\Webhooks\PaymentWebhookController::class, 'pagarme']);
+// External Webhooks - Abstração Dinâmica
+Route::post('/webhooks/{gateway}', [\App\Http\Controllers\Webhooks\PaymentWebhookController::class, 'handle'])
+    ->name('webhooks.handle');
