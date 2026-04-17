@@ -196,18 +196,14 @@ class PaymentWebhookController extends Controller
         $resource = $request->input('resource');
 
         if ($eventType === 'PAYMENT.CAPTURE.COMPLETED') {
-            // No PayPal v2, o ID do Pedido raiz fica escondido na estrutura e precisamos dele.
-            // Para encontrar o externalReference a gente escava o purchase_units original ou supplementary_data
-            
-            // Mas, normalmente o IPN (Webhook) de captação traz o custom_id equivalente
+            // No PayPal v2, o ID do Pedido raiz fica gravado na propriedade `custom_id` devido à injeção no Gateway.
             $orderUuid = $resource['custom_id'] ?? null;
             
-            // Tentar extrair do link "up" se custom_id não vier (referência ao order)
+            // Backup legado via checkout fallback caso exista ordem muito antiga sem custom_id
             if (!$orderUuid && isset($resource['supplementary_data']['related_ids']['order_id'])) {
                  $paypalOrderId = $resource['supplementary_data']['related_ids']['order_id'];
-                 // Para este fluxo funcionar magicamente, a PayPal Order Original gerada na gateway foi gravada no gateway_transaction_id
                  $order = Order::where('gateway_transaction_id', $paypalOrderId)->first();
-            } else {
+            } elseif ($orderUuid) {
                  $order = Order::where('uuid', $orderUuid)->first();
             }
 
@@ -221,10 +217,11 @@ class PaymentWebhookController extends Controller
                      'gateway_transaction_id' => $captureId
                  ]);
                  Log::info("Pedido {$order->uuid} Pago via PayPal Capture!");
+            } else {
+                 Log::warning('PayPal Webhook: Pedido Origem Não Encontrado para Captured Payment.');
             }
         } elseif ($eventType === 'PAYMENT.CAPTURE.REFUNDED') {
             // Em caso de estornos pela plataforma do Paypal
-            $captureId = $request->input('resource.links.0.href'); // Busca na url ou se for estorno direto usamos id capture
             // Mais seguro buscar order pelo que já temos registrado (capture id)
             $refundCaptureId = \Illuminate\Support\Str::afterLast($request->input('resource.links.1.href') ?? '', '/');
             

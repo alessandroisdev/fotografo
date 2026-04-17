@@ -48,6 +48,7 @@ class PaypalGateway implements PaymentGatewayInterface
                     'intent' => 'CAPTURE',
                     'purchase_units' => [[
                         'reference_id' => $order->uuid,
+                        'custom_id' => $order->uuid, // CRUCIAL: Retornado com 100% de fiabilidade nos webhooks asíncronos da V2
                         'description' => 'Fotografias - ' . $order->gallery->name,
                         'amount' => [
                             'currency_code' => 'BRL',
