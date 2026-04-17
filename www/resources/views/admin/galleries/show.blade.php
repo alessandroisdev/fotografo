@@ -1,0 +1,118 @@
+@extends('layouts.admin')
+
+@section('title', 'Gerenciar Galeria')
+@section('header_title', $gallery->name)
+
+@section('content')
+<!-- Include Dropzone CSS natively for this view -->
+<link rel="stylesheet" href="https://unpkg.com/dropzone@5/dist/min/dropzone.min.css" type="text/css" />
+
+<style>
+    .dropzone {
+        border: 2px dashed var(--bs-primary);
+        border-radius: 15px;
+        background: rgba(10, 88, 202, 0.03);
+        padding: 50px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    .dropzone:hover {
+        background: rgba(10, 88, 202, 0.08);
+    }
+</style>
+
+<div class="row g-4">
+    <!-- Dropzone Area -->
+    <div class="col-12 col-lg-8">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+            <div class="card-body p-4">
+                <h5 class="fw-bold text-primary mb-1"><i class="bi bi-cloud-arrow-up text-secondary me-2"></i> Upload Massivo de Imagens</h5>
+                <p class="text-muted small mb-4">Arraste os arquivos JPEG, PNG ou WEBP originais. O servidor suporta até 500MB por bloco. O Processador Redis fará a marca d'água no plano de fundo automaticamente.</p>
+                
+                <form action="{{ route('admin.galleries.photos.store', $gallery->id) }}" class="dropzone" id="massUploader">
+                    @csrf
+                    <div class="dz-message needsclick">
+                        <i class="bi bi-cloud-upload fs-1 text-primary"></i><br/>
+                        <span class="fs-5 fw-bold">Solte os Arquivos Aqui</span><br/>
+                        <span class="text-muted">ou clique para procurar no PC.</span>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gallery Context -->
+    <div class="col-12 col-lg-4">
+        <div class="card border-0 shadow-sm rounded-4 bg-primary text-white h-100">
+            <div class="card-body p-4">
+                <span class="badge bg-warning text-dark mb-2 rounded-pill">{{ strtoupper($gallery->status) }}</span>
+                <h4 class="fw-bold mb-3">{{ $gallery->name }}</h4>
+                <p class="opacity-75"><i class="bi bi-person me-2"></i> {{ $gallery->user->name ?? 'Cliente Desconhecido' }}</p>
+                <p class="opacity-75"><i class="bi bi-calendar me-2"></i> {{ $gallery->created_at->format('d/m/Y') }}</p>
+                <hr class="border-white opacity-25">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-light fw-bold"><i class="bi bi-eye"></i> Visualizar Link Público</button>
+                    <button class="btn btn-outline-light fw-bold"><i class="bi bi-gear"></i> Editar Permissões</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4">
+                <h5 class="fw-bold text-primary mb-4"><i class="bi bi-columns-gap text-secondary me-2"></i> Fotos Processadas & Pendentes</h5>
+                
+                <div class="row g-3" id="photo-grid">
+                    @forelse($gallery->photos as $photo)
+                        <div class="col-6 col-md-3 col-lg-2 text-center" id="photo-{{ $photo->id }}">
+                            @if($photo->status == 'processing')
+                                <div class="bg-light rounded p-4 border text-muted d-flex align-items-center justify-content-center flex-column" style="height:150px;">
+                                    <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+                                    <small class="fw-bold">Processando...</small>
+                                </div>
+                            @else
+                                <div class="position-relative">
+                                    <img src="{{ Storage::url($photo->thumbnail_path) }}" class="img-fluid rounded border" alt="Thumbnail" style="height:150px; object-fit:cover; width:100%;">
+                                    <span class="badge bg-success position-absolute bottom-0 start-0 m-1"><i class="bi bi-check-circle"></i></span>
+                                </div>
+                            @endif
+                        </div>
+                    @empty
+                        <div class="col-12 text-center py-4 text-muted">
+                            Nenhuma foto enviada ainda.
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://unpkg.com/dropzone@5/dist/min/dropzone.min.js"></script>
+<script>
+    Dropzone.options.massUploader = {
+        maxFilesize: 500, // MB format
+        acceptedFiles: 'image/jpeg,image/png,image/jpg,image/webp',
+        dictDefaultMessage: "Arraste os arquivos aqui para upload",
+        success: function(file, response) {
+            console.log("Uploaded successfully: ", response);
+            // Poderíamos injetar a caixinha de spinner dinamicamente no DOM usando response.photo_id para visual instantâneo!
+            let grid = document.getElementById('photo-grid');
+            let emptyMsg = grid.querySelector('.py-4');
+            if(emptyMsg) emptyMsg.remove();
+            
+            grid.insertAdjacentHTML('afterbegin', `
+                <div class="col-6 col-md-3 col-lg-2 text-center" id="photo-${response.photo_id}">
+                    <div class="bg-light rounded p-4 border text-muted d-flex align-items-center justify-content-center flex-column" style="height:150px;">
+                        <div class="spinner-grow spinner-grow-sm text-primary mb-2" role="status"></div>
+                        <small class="fw-bold text-primary">NaFila...</small>
+                    </div>
+                </div>
+            `);
+        }
+    };
+</script>
+@endsection
