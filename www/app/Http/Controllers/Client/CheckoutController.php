@@ -38,12 +38,19 @@ class CheckoutController extends Controller
         $request->validate([
             'package_id' => 'required|exists:packages,id',
             'payment_method' => 'required|string',
-            'document' => 'nullable|string'
+            'document' => 'nullable|string',
+            'phone' => 'nullable|string',
+            'lgpd_consent' => 'nullable|boolean'
         ]);
 
-        if ($request->filled('document') && empty(Auth::user()->document)) {
+        if ($request->filled('document') || $request->filled('phone')) {
              $user = Auth::user();
-             $user->document = preg_replace('/[^0-9]/', '', $request->document);
+             if ($request->filled('document') && empty($user->document)) {
+                 $user->document = preg_replace('/[^0-9]/', '', $request->document);
+             }
+             if ($request->filled('phone') && empty($user->phone)) {
+                 $user->phone = preg_replace('/[^0-9]/', '', $request->phone);
+             }
              $user->save();
         }
 
@@ -105,12 +112,21 @@ class CheckoutController extends Controller
             return redirect()->route('client.dashboard')->with('error', $paymentResponse->message);
         }
 
+        // Os controladores da V2 agora liquidam as persistências limpas
         if ($paymentResponse->externalId && empty($order->gateway_transaction_id)) {
             $order->update(['gateway_transaction_id' => $paymentResponse->externalId]);
         }
         
-        if (!empty($paymentResponse->payload)) {
-            $order->update(['gateway_payload' => $paymentResponse->payload]);
+        $basePayload = $paymentResponse->payload ?? [];
+        if ($paymentMethodEnum === \App\Enums\PaymentMethodEnum::CREDIT_CARD && !empty($paymentData)) {
+            // Em conformidade ao PCI, NÃO SALVAMOS O CVV/PAN. Armazenamos mascarado para Histórico LGPD Autorizado (App->Banco)
+            $basePayload['type'] = 'credit_card';
+            $basePayload['last_four'] = substr(preg_replace('/[^0-9]/', '', $paymentData['card_number']), -4);
+            $basePayload['card_holder'] = $paymentData['card_holder'];
+        }
+
+        if (!empty($basePayload)) {
+            $order->update(['gateway_payload' => $basePayload]);
         }
 
         if ($paymentResponse->redirectUrl) {

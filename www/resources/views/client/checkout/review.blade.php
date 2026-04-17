@@ -41,19 +41,15 @@
                         @csrf
                         <input type="hidden" name="package_id" value="{{ $package->id }}">
                         
-                        @if(empty(Auth::user()->document))
-                        <div class="mb-4 text-start">
-                             <label class="form-label fw-bold text-white mb-2">Seu CPF (Para Faturamento) <span class="text-danger">*</span></label>
-                             <input type="text" name="document" class="form-control bg-dark text-white border-secondary" required placeholder="Digite apenas números">
-                             <div class="form-text text-white-50 small"><i class="bi bi-shield-lock me-1"></i> Necessário p/ emissão segura do Pix.</div>
-                        </div>
-                        @endif
+                        @php
+                            $missingReg = empty(Auth::user()->document) || empty(Auth::user()->phone);
+                        @endphp
 
                         <div class="mb-4">
                             <label class="form-label fw-bold text-white mb-2 d-block">Como deseja pagar?</label>
                             @foreach(\App\Enums\PaymentMethodEnum::cases() as $methodEnum)
                                 <div class="form-check mb-2 bg-dark p-2 rounded border border-secondary" style="--bs-border-opacity: .3;">
-                                    <input class="form-check-input ms-1 gateway-selector" onchange="toggleCardForm(this, '{{ $package->id }}')" type="radio" name="payment_method" id="method_{{ $methodEnum->value }}_{{ $package->id }}" value="{{ $methodEnum->value }}" required>
+                                    <input class="form-check-input ms-1 gateway-selector" onchange="toggleFormLogic(this, '{{ $package->id }}')" type="radio" name="payment_method" id="method_{{ $methodEnum->value }}_{{ $package->id }}" value="{{ $methodEnum->value }}" required>
                                     <label class="form-check-label text-white ms-2" for="method_{{ $methodEnum->value }}_{{ $package->id }}">
                                         {{ $methodEnum->label() }}
                                     </label>
@@ -61,9 +57,31 @@
                             @endforeach
                         </div>
 
+                        <!-- Formulário Secundário: Cadastro Pendente -->
+                        @if($missingReg)
+                        <div id="registration_form_{{ $package->id }}" class="registration-form-container d-none mb-4 text-start bg-dark bg-opacity-50 p-3 rounded border border-warning" style="--bs-border-opacity: .5;">
+                             <h6 class="text-warning mb-3 fw-bold"><i class="bi bi-person-lines-fill me-2"></i>Completar Cadastro (Obrigatório)</h6>
+                             <p class="small text-white-50 form-text">Por exigência fiscal, informe seus detalhes abaixo antes do pagamento.</p>
+                             
+                             @if(empty(Auth::user()->document))
+                             <div class="mb-3">
+                                  <label class="form-label text-white-50 small mb-1">Seu CPF / CNPJ <span class="text-danger">*</span></label>
+                                  <input type="text" name="document" id="doc_{{ $package->id }}" class="form-control bg-dark text-white border-secondary reg-input" placeholder="Apenas números">
+                             </div>
+                             @endif
+
+                             @if(empty(Auth::user()->phone))
+                             <div class="mb-3">
+                                  <label class="form-label text-white-50 small mb-1">Telefone / WhatsApp <span class="text-danger">*</span></label>
+                                  <input type="text" name="phone" id="phone_{{ $package->id }}" class="form-control bg-dark text-white border-secondary reg-input" placeholder="(11) 90000-0000">
+                             </div>
+                             @endif
+                        </div>
+                        @endif
+
                         <!-- Formulário Transparente de Cartão (Oculto por Padrão) -->
                         <div id="card_form_{{ $package->id }}" class="card-form-container d-none mb-4 text-start bg-dark p-3 rounded border border-secondary shadow-sm" style="--bs-border-opacity: .3;">
-                             <h6 class="text-white mb-3 fw-bold"><i class="bi bi-credit-card me-2"></i>Dados do Cartão (Pagamento Seguro)</h6>
+                             <h6 class="text-white mb-3 fw-bold"><i class="bi bi-credit-card me-2"></i>Dados do Cartão (Criptografia Seguro)</h6>
                              <div class="mb-3">
                                   <label class="form-label text-white-50 small mb-1">Nome Impresso no Cartão</label>
                                   <input type="text" name="card_holder" class="form-control bg-dark text-white border-secondary card-input" placeholder="EX: JOAO DA SILVA">
@@ -72,7 +90,7 @@
                                   <label class="form-label text-white-50 small mb-1">Número do Cartão</label>
                                   <input type="text" name="card_number" class="form-control bg-dark text-white border-secondary card-input" placeholder="0000 0000 0000 0000">
                              </div>
-                             <div class="row g-2">
+                             <div class="row g-2 mb-3">
                                   <div class="col-6">
                                        <label class="form-label text-white-50 small mb-1">Validade (MM/YY)</label>
                                        <input type="text" name="card_expiry" class="form-control bg-dark text-white border-secondary card-input" placeholder="12/28">
@@ -82,9 +100,17 @@
                                        <input type="text" name="card_cvv" class="form-control bg-dark text-white border-secondary card-input" placeholder="123">
                                   </div>
                              </div>
+
+                             <!-- Consentimento LGPD Obrigatório ao usar Cartão -->
+                             <div class="form-check mt-3 border-top border-secondary pt-3">
+                                 <input class="form-check-input card-input" type="checkbox" name="lgpd_consent" value="1" id="lgpd_{{ $package->id }}">
+                                 <label class="form-check-label text-white opacity-75 small" for="lgpd_{{ $package->id }}">
+                                     Processaremos estes dados momentaneamente e salvaremos apenas as referências mascaradas para o seu Histórico Fiscal em conformidade com as diretrizes e salvaguardas da LGPD e PCI-DSS Financeira.
+                                 </label>
+                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary w-100 fw-bold py-3 rounded-pill shadow">Confirmar Pacote e Pagar</button>
+                        <button type="submit" class="btn btn-primary w-100 fw-bold py-3 rounded-pill shadow">Confirmar e Finalizar</button>
                     </form>
                 </div>
             </div>
@@ -96,19 +122,30 @@
 
 @push('scripts')
 <script>
-    function toggleCardForm(radio, packageId) {
+    function toggleFormLogic(radio, packageId) {
         // Esconde todos os forms e limpa validations
-        document.querySelectorAll('.card-form-container').forEach(el => {
+        document.querySelectorAll('.card-form-container, .registration-form-container').forEach(el => {
             el.classList.add('d-none');
             el.querySelectorAll('input').forEach(input => input.required = false);
         });
         
-        // Se escolheu credit_card, mostra o container correspondente e seta required
+        let missingReg = {{ $missingReg ? 'true' : 'false' }};
+        
+        // Se houver dados faltantes (CPF/Phone), exibe a cortina do Cadastro + LGPD pra QUALQUER método
+        if (missingReg) {
+            const regContainer = document.getElementById('registration_form_' + packageId);
+            if (regContainer) {
+                regContainer.classList.remove('d-none');
+                regContainer.querySelectorAll('input.reg-input').forEach(input => input.required = true);
+            }
+        }
+        
+        // Se for Cartão, deve exibir a cortina do Cartão
         if (radio.value === 'credit_card') {
-            const container = document.getElementById('card_form_' + packageId);
-            if (container) {
-                container.classList.remove('d-none');
-                container.querySelectorAll('input').forEach(input => input.required = true);
+            const cardContainer = document.getElementById('card_form_' + packageId);
+            if (cardContainer) {
+                cardContainer.classList.remove('d-none');
+                cardContainer.querySelectorAll('input.card-input').forEach(input => input.required = true);
             }
         }
     }
