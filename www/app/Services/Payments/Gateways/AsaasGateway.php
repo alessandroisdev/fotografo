@@ -25,43 +25,87 @@ class AsaasGateway implements PaymentGatewayInterface
 
     public function generateCharge(Order $order): PaymentResponse
     {
-        // Neste passo integraria-se chamadas reais.
-        // Aqui construiremos a infraestrutura sólida simulando retorno em mock para evitar billing acidental
-        // até o cliente fornecer a sua API Key válida.
-        
         try {
-            /* 
-            Exemplo Dinâmico de Integração:
-            $response = Http::withHeaders(['access_token' => $this->apiKey])
-                ->post($this->baseUrl . '/payments', [
-                    'customer' => $order->user->asaas_customer_id, // Carece da criação de customer API 
-                    'billingType' => 'UNDEFINED', // Deixa cliente escolher Cartao/Pix
-                    'value' => $order->total_amount,
-                    'dueDate' => date('Y-m-d', strtotime('+3 days')),
-                    'description' => 'Pacote Fotográfico - Galeria #' . $order->gallery_id
-                ]);
-            */
+            // 1. Resgatar ou Criar o Cliente Externo (Wallet)
+            $customerId = $this->resolveCustomer($order->user);
 
-            // Retorno Mockado para Validar a Arquitetura da Factory
-            $mockInvoiceUrl = 'https://sandbox.asaas.com/i/mocked_payment_' . $order->uuid;
+            // 2. Montar Requisição de Cobrança (Fatura)
+            $response = Http::withHeaders([
+                'access_token' => $this->apiKey,
+                'Content-Type' => 'application/json'
+            ])->timeout(15)->post($this->baseUrl . '/payments', [
+                'customer' => $customerId,
+                'billingType' => 'UNDEFINED', // Permite o cliente decidir Cartão, Boleto ou PIX pela página do Asaas
+                'value' => round($order->total_amount, 2),
+                'dueDate' => date('Y-m-d', strtotime('+3 days')),
+                'description' => 'Serviços Fotográficos - Galeria #' . $order->gallery->name,
+                'externalReference' => $order->uuid // Ponte Crucial para Webhook
+            ]);
+
+            if ($response->failed()) {
+                Log::error('Asaas Payment Error', ['body' => $response->json()]);
+                return PaymentResponse::make(
+                    success: false,
+                    message: 'A operadora de transações financeiras recusou o pedido no momento.'
+                );
+            }
+
+            $responseData = $response->json();
             
-            // Opcional: Atualizar status do banco caso a API fosse imediata (mas Asaas usa Webhooks para pagar)
+            // 3. Registrar o ID financeiro como Pending e devolver URL
             $order->update(['status' => 'pending']);
 
             return PaymentResponse::make(
                 success: true,
-                message: 'Fatura Asaas gerada com sucesso!',
-                redirectUrl: $mockInvoiceUrl,
-                externalId: 'pay_asaas_mock_123'
+                message: 'Fatura gerada em ambiente Asaas com sucesso!',
+                redirectUrl: $responseData['invoiceUrl'] ?? null,
+                externalId: $responseData['id'] ?? null
             );
 
         } catch (\Exception $e) {
-            Log::error('Asaas Gateway Error: ' . $e->getMessage());
+            Log::error('Asaas Gateway HTTP Exception: ' . $e->getMessage());
             
             return PaymentResponse::make(
                 success: false,
-                message: 'Falha ao se comunicar com o banco de compensação.'
+                message: 'Incomunicabilidade temporária na malha bancária externa.'
             );
         }
+    }
+
+    /**
+     * Resolve Customer Externo no Banco Asaas
+     */
+    private function resolveCustomer($user): string
+    {
+        // Limpa formatações para comparar na base
+        $document = preg_replace('/[^0-9]/', '', $user->document);
+
+        // Busca o indivíduo por Cpf (Geralmente 1 para cada CPF na conta do fotógrafo)
+        $search = Http::withHeaders(['access_token' => $this->apiKey])
+                      ->timeout(10)
+                      ->get($this->baseUrl . '/customers', ['cpfCnpj' => $document]);
+
+        if ($search->successful() && isset($search->json()['data'][0]['id'])) {
+             return $search->json()['data'][0]['id'];
+        }
+
+        // Se não achou, cadastra novo nó de cliente na API Asaas do lojista
+        $create = Http::withHeaders([
+            'access_token' => $this->apiKey,
+            'Content-Type' => 'application/json'
+        ])->timeout(12)->post($this->baseUrl . '/customers', [
+            'name' => $user->name,
+            'email' => $user->email,
+            'cpfCnpj' => $document,
+            'phone' => preg_replace('/[^0-9]/', '', $user->phone),
+            'externalReference' => $user->uuid
+        ]);
+
+        if ($create->failed()) {
+             Log::error('Asaas Customer Creation', ['body' => $create->json()]);
+             throw new \Exception('Não foi possível matricular os documentos do cliente no Gateway recebedor.');
+        }
+
+        return $create->json()['id'];
     }
 }
