@@ -35,21 +35,66 @@
                 
                 <div class="mt-4 d-flex justify-content-center gap-2">
                     @if($order->status !== \App\Enums\OrderStatusEnum::PAID && $order->status !== \App\Enums\OrderStatusEnum::CANCELLED)
-                        <form action="{{ route('admin.orders.retry', $order->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Deseja forçar uma nova emissão/cobrança no Gateway? Isso só funciona em cobranças PIX/Boleto.');">
-                            @csrf
-                            <button type="submit" class="btn btn-warning text-dark fw-medium px-4 rounded-pill shadow-sm"><i class="bi bi-arrow-repeat"></i> Retentar Cobrança (Gateway)</button>
-                        </form>
+                        <button type="button" class="btn btn-warning text-dark fw-medium px-4 rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#retryModal">
+                            <i class="bi bi-arrow-repeat"></i> Retentar Cobrança (Gateway)
+                        </button>
                     @endif
                     
                     @if($order->status !== \App\Enums\OrderStatusEnum::CANCELLED)
-                        <form action="{{ route('admin.orders.update', $order->id) }}" method="POST" class="d-inline" onsubmit="return confirm('ATENÇÃO: Cancelar esta fatura pode estornar o valor no gateway se ela já foi paga. Tem certeza?');">
+                        <button type="button" class="btn btn-danger fw-medium px-4 rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#cancelModal">
+                            <i class="bi bi-x-octagon"></i> Cancelar Pedido
+                        </button>
+                    @endif
+                </div>
+                
+                <!-- Modais de Confirmação -->
+                @if($order->status !== \App\Enums\OrderStatusEnum::PAID && $order->status !== \App\Enums\OrderStatusEnum::CANCELLED)
+                <div class="modal fade" id="retryModal" tabindex="-1" aria-labelledby="retryModalLabel" aria-hidden="true">
+                  <div class="modal-dialog">
+                    <div class="modal-content">
+                      <div class="modal-header">
+                        <h1 class="modal-title fs-5 text-warning-emphasis" id="retryModalLabel"><i class="bi bi-exclamation-triangle"></i> Retentativa Manual</h1>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <div class="modal-body text-start">
+                        Deseja forçar uma nova emissão/cobrança no Gateway? Isso só funciona plenamente em cobranças com transações desacopladas via PIX/Boleto.
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                        <form action="{{ route('admin.orders.retry', $order->id) }}" method="POST">
+                            @csrf
+                            <button type="submit" class="btn btn-warning fw-bold">Sim, Forçar Retentativa</button>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                @endif
+
+                @if($order->status !== \App\Enums\OrderStatusEnum::CANCELLED)
+                <div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true">
+                  <div class="modal-dialog">
+                    <div class="modal-content border-danger">
+                      <div class="modal-header bg-danger text-white">
+                        <h1 class="modal-title fs-5" id="cancelModalLabel"><i class="bi bi-x-circle"></i> Cancelar Pedido</h1>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <div class="modal-body text-start">
+                        <strong>ATENÇÃO:</strong> Cancelar esta fatura pode estornar o valor diretamente na operadora caso ela já tenha sido atrelada como Paga. Você tem certeza que quer revogar as permissões deste pacote?
+                      </div>
+                      <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Manter Pedido</button>
+                        <form action="{{ route('admin.orders.update', $order->id) }}" method="POST">
                             @csrf
                             @method('PATCH')
                             <input type="hidden" name="status" value="{{ \App\Enums\OrderStatusEnum::CANCELLED->value }}">
-                            <button type="submit" class="btn btn-danger fw-medium px-4 rounded-pill shadow-sm"><i class="bi bi-x-octagon"></i> Cancelar Pedido</button>
+                            <button type="submit" class="btn btn-danger fw-bold">Sim, Estornar Pedido</button>
                         </form>
-                    @endif
+                      </div>
+                    </div>
+                  </div>
                 </div>
+                @endif
             </div>
         </div>
     </div>
