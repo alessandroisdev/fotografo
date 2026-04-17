@@ -77,7 +77,7 @@ class GalleryController extends Controller
             'user_id' => 'required|exists:users,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'status' => [\Illuminate\Validation\Rules\Enum::class, \App\Enums\GalleryStatusEnum::class]
+            'status' => [new \Illuminate\Validation\Rules\Enum(\App\Enums\GalleryStatusEnum::class)]
         ]);
 
         $validated['status'] = \App\Enums\GalleryStatusEnum::tryFrom($request->status);
