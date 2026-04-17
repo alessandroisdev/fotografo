@@ -12,7 +12,7 @@ use Illuminate\Notifications\Notifiable;
 
 use App\Traits\HasUuid;
 
-#[Fillable(['name', 'email', 'password', 'role', 'uuid', 'document', 'phone'])]
+#[Fillable(['name', 'email', 'password', 'role', 'uuid', 'document', 'phone', 'zipcode', 'address', 'address_number', 'city', 'state'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -31,5 +31,10 @@ class User extends Authenticatable
             'password' => 'hashed',
             'role' => \App\Enums\UserRoleEnum::class,
         ];
+    }
+
+    public function cards()
+    {
+        return $this->hasMany(UserCard::class);
     }
 }

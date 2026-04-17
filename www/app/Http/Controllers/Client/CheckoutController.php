@@ -40,17 +40,24 @@ class CheckoutController extends Controller
             'payment_method' => 'required|string',
             'document' => 'nullable|string',
             'phone' => 'nullable|string',
+            'zipcode' => 'nullable|string',
+            'address' => 'nullable|string',
+            'address_number' => 'nullable|string',
+            'city' => 'nullable|string',
+            'state' => 'nullable|string',
+            'saved_card_id' => 'nullable|string',
             'lgpd_consent' => 'nullable|boolean'
         ]);
 
-        if ($request->filled('document') || $request->filled('phone')) {
+        if ($request->filled('document') || $request->filled('phone') || $request->filled('zipcode')) {
              $user = Auth::user();
-             if ($request->filled('document') && empty($user->document)) {
-                 $user->document = preg_replace('/[^0-9]/', '', $request->document);
-             }
-             if ($request->filled('phone') && empty($user->phone)) {
-                 $user->phone = preg_replace('/[^0-9]/', '', $request->phone);
-             }
+             if ($request->filled('document') && empty($user->document)) $user->document = preg_replace('/[^0-9]/', '', $request->document);
+             if ($request->filled('phone') && empty($user->phone)) $user->phone = preg_replace('/[^0-9]/', '', $request->phone);
+             if ($request->filled('zipcode') && empty($user->zipcode)) $user->zipcode = preg_replace('/[^0-9]/', '', $request->zipcode);
+             if ($request->filled('address')) $user->address = $request->address;
+             if ($request->filled('address_number')) $user->address_number = $request->address_number;
+             if ($request->filled('city')) $user->city = $request->city;
+             if ($request->filled('state')) $user->state = $request->state;
              $user->save();
         }
 
@@ -97,10 +104,35 @@ class CheckoutController extends Controller
 
         $request->session()->forget('checkout_photos');
 
-        // Coleta Array Mestre do Cartão se aplicável
-        $paymentData = [];
-        if ($paymentMethodEnum === \App\Enums\PaymentMethodEnum::CREDIT_CARD && $request->filled('card_number')) {
-             $paymentData = $request->only(['card_holder', 'card_number', 'card_expiry', 'card_cvv']);
+        // Coleta Array Mestre do Cartão se aplicável (Cofre vs Novo)
+        $paymentData = null;
+        if ($paymentMethodEnum === \App\Enums\PaymentMethodEnum::CREDIT_CARD) {
+            $savedCardId = $request->input('saved_card_id');
+            
+            if ($savedCardId && $savedCardId !== 'new') {
+                $vaultCard = \App\Models\UserCard::where('id', $savedCardId)->where('user_id', Auth::id())->firstOrFail();
+                $paymentData = [
+                    'card_number' => $vaultCard->encrypted_number,
+                    'card_expiry' => $vaultCard->encrypted_expiry,
+                    'card_cvv' => $vaultCard->encrypted_cvv,
+                    'card_holder' => $vaultCard->card_holder,
+                ];
+            } else {
+                $paymentData = $request->only(['card_holder', 'card_number', 'card_expiry', 'card_cvv']);
+                $cleanNumber = preg_replace('/[^0-9]/', '', $paymentData['card_number'] ?? '');
+
+                if ($request->has('save_new_card') && !empty($paymentData['card_number']) && !empty($paymentData['card_holder'])) {
+                    \App\Models\UserCard::create([
+                        'user_id' => Auth::id(),
+                        'card_holder' => $paymentData['card_holder'],
+                        'card_brand' => 'CARTÃO',
+                        'last_four' => substr($cleanNumber, -4),
+                        'encrypted_number' => $paymentData['card_number'],
+                        'encrypted_expiry' => $paymentData['card_expiry'],
+                        'encrypted_cvv' => $paymentData['card_cvv']
+                    ]);
+                }
+            }
         }
 
         // Factory Pattern resolvendo Múltiplos Gateways via Enum Method
@@ -143,11 +175,32 @@ class CheckoutController extends Controller
     {
         $request->validate([
             'payment_method' => 'required|string',
+            'document' => 'nullable|string',
+            'phone' => 'nullable|string',
+            'zipcode' => 'nullable|string',
+            'address' => 'nullable|string',
+            'address_number' => 'nullable|string',
+            'city' => 'nullable|string',
+            'state' => 'nullable|string',
+            'saved_card_id' => 'nullable|string',
+            'lgpd_consent' => 'nullable|boolean',
             'card_number' => 'nullable|string',
             'card_holder' => 'nullable|string',
             'card_expiry' => 'nullable|string',
             'card_cvv' => 'nullable|string'
         ]);
+
+        if ($request->filled('document') || $request->filled('phone') || $request->filled('zipcode')) {
+             $user = Auth::user();
+             if ($request->filled('document') && empty($user->document)) $user->document = preg_replace('/[^0-9]/', '', $request->document);
+             if ($request->filled('phone') && empty($user->phone)) $user->phone = preg_replace('/[^0-9]/', '', $request->phone);
+             if ($request->filled('zipcode') && empty($user->zipcode)) $user->zipcode = preg_replace('/[^0-9]/', '', $request->zipcode);
+             if ($request->filled('address')) $user->address = $request->address;
+             if ($request->filled('address_number')) $user->address_number = $request->address_number;
+             if ($request->filled('city')) $user->city = $request->city;
+             if ($request->filled('state')) $user->state = $request->state;
+             $user->save();
+        }
 
         $order = Order::where('uuid', $uuid)->where('user_id', Auth::id())->firstOrFail();
 
@@ -160,10 +213,35 @@ class CheckoutController extends Controller
             return back()->with('error', 'Método de pagamento inválido.');
         }
 
-        // Coleta Novamente se tentar por Cartão Limpo
-        $paymentData = [];
-        if ($paymentMethodEnum === \App\Enums\PaymentMethodEnum::CREDIT_CARD && $request->filled('card_number')) {
-             $paymentData = $request->only(['card_holder', 'card_number', 'card_expiry', 'card_cvv']);
+        // Coleta Array Mestre do Cartão via Novo ou do Cofre (Vault)
+        $paymentData = null;
+        if ($paymentMethodEnum === \App\Enums\PaymentMethodEnum::CREDIT_CARD) {
+            $savedCardId = $request->input('saved_card_id');
+            
+            if ($savedCardId && $savedCardId !== 'new') {
+                $vaultCard = \App\Models\UserCard::where('id', $savedCardId)->where('user_id', Auth::id())->firstOrFail();
+                $paymentData = [
+                    'card_number' => $vaultCard->encrypted_number,
+                    'card_expiry' => $vaultCard->encrypted_expiry,
+                    'card_cvv' => $vaultCard->encrypted_cvv,
+                    'card_holder' => $vaultCard->card_holder,
+                ];
+            } else {
+                $paymentData = $request->only(['card_number', 'card_expiry', 'card_cvv', 'card_holder']);
+                $cleanNumber = preg_replace('/[^0-9]/', '', $paymentData['card_number'] ?? '');
+
+                if ($request->has('save_new_card') && !empty($paymentData['card_number']) && !empty($paymentData['card_holder'])) {
+                    \App\Models\UserCard::create([
+                        'user_id' => Auth::id(),
+                        'card_holder' => $paymentData['card_holder'],
+                        'card_brand' => 'CARTÃO',
+                        'last_four' => substr($cleanNumber, -4),
+                        'encrypted_number' => $paymentData['card_number'],
+                        'encrypted_expiry' => $paymentData['card_expiry'],
+                        'encrypted_cvv' => $paymentData['card_cvv']
+                    ]);
+                }
+            }
         }
 
         // Atualiza o gateway de preferência
