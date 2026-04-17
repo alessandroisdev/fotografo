@@ -108,4 +108,35 @@ class AsaasGateway implements PaymentGatewayInterface
 
         return $create->json()['id'];
     }
+
+    public function refundCharge(Order $order, ?float $amount = null): bool
+    {
+        if (empty($order->gateway_transaction_id)) {
+            Log::error('Asaas Gateway Error: Impossível estornar fatura sem ID de transação salvo.');
+            return false;
+        }
+
+        $payload = [];
+        if (!is_null($amount)) {
+             $payload['value'] = $amount;
+             $payload['description'] = 'Estorno parcial do pacote fotográfico.';
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'access_token' => $this->apiKey,
+                'Content-Type' => 'application/json'
+            ])->timeout(15)->post($this->baseUrl . '/payments/' . $order->gateway_transaction_id . '/refund', $payload);
+
+            if ($response->failed()) {
+                Log::error('Asaas Refund Failed', ['body' => $response->json()]);
+                return false;
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Asaas Refund HTTP Exception: ' . $e->getMessage());
+            return false;
+        }
+    }
 }

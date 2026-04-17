@@ -41,7 +41,12 @@ class OrderController extends Controller
                              $btn .= '<form action="'.route('admin.orders.update', $row->id).'" method="POST" class="d-inline">
                                       '.csrf_field().method_field('PATCH').'
                                       <input type="hidden" name="status" value="pending">
-                                      <button type="submit" class="btn btn-warning btn-sm me-1" title="Estornar para Pendente"><i class="bi bi-arrow-counterclockwise"></i></button>
+                                      <button type="submit" class="btn btn-warning btn-sm me-1" title="Estornar para Pendente (Manual)"><i class="bi bi-arrow-counterclockwise"></i></button>
+                                      </form>';
+                             $btn .= '<form action="'.route('admin.orders.update', $row->id).'" method="POST" class="d-inline" onsubmit="return confirm(\'Isso acionará estorno no Gateway se aplicável (Ex: PIX Asaas). Continuar?\');">
+                                      '.csrf_field().method_field('PATCH').'
+                                      <input type="hidden" name="status" value="cancelled">
+                                      <button type="submit" class="btn btn-danger btn-sm me-1" title="Cancelar Venda e Estornar"><i class="bi bi-x-octagon"></i></button>
                                       </form>';
                          }
                          
@@ -71,12 +76,26 @@ class OrderController extends Controller
             'status' => 'required|in:pending,paid,cancelled'
         ]);
 
+        if ($validated['status'] == 'cancelled' && $order->status == 'paid') {
+            // Estorno Financeiro Real
+            try {
+                 $methodEnum = \App\Enums\PaymentMethodEnum::tryFrom($order->gateway);
+                 if ($methodEnum) {
+                     $gateway = \App\Services\Payments\PaymentGatewayFactory::resolve($methodEnum);
+                     // Dispara instrução para a operadora (Ex: Asaas, Stripe)
+                     $gateway->refundCharge($order);
+                 }
+            } catch (\Exception $e) {
+                 \Illuminate\Support\Facades\Log::error('Erro ao estornar fatura pelo painel: ' . $e->getMessage());
+            }
+        }
+
         $order->update([
             'status' => $validated['status'],
             'paid_at' => $validated['status'] == 'paid' ? now() : null
         ]);
         
-        return redirect()->route('admin.orders.index')->with('success', 'Status da Fatura modificado!');
+        return redirect()->route('admin.orders.index')->with('success', 'Status da Fatura modificado com sucesso!');
     }
 
     public function destroy(Order $order)

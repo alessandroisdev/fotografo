@@ -14,4 +14,13 @@ interface PaymentGatewayInterface
      * @return PaymentResponse
      */
     public function generateCharge(Order $order): PaymentResponse;
+
+    /**
+     * Reverts a processed transaction directly against the financial institution.
+     * 
+     * @param Order $order
+     * @param float|null $amount Refund partial or full if null.
+     * @return bool
+     */
+    public function refundCharge(Order $order, ?float $amount = null): bool;
 }

@@ -23,18 +23,69 @@ class StripeGateway implements PaymentGatewayInterface
     public function generateCharge(Order $order): PaymentResponse
     {
         try {
-            // MOCK Simulando Stripe
+            $response = \Illuminate\Support\Facades\Http::withToken($this->secretKey)
+                ->asForm()
+                ->timeout(15)
+                ->post('https://api.stripe.com/v1/checkout/sessions', [
+                    'success_url' => route('client.dashboard', ['stripe_success' => '1']),
+                    'cancel_url' => route('client.dashboard'),
+                    'mode' => 'payment',
+                    'client_reference_id' => $order->uuid,
+                    'customer_email' => $order->user->email,
+                    'line_items[0][price_data][currency]' => 'brl',
+                    'line_items[0][price_data][product_data][name]' => 'Ensaios e Fotografias: ' . $order->gallery->name,
+                    'line_items[0][price_data][unit_amount]' => round($order->total_amount, 2) * 100, // Stripe usa centavos
+                    'line_items[0][quantity]' => 1,
+                ]);
+
+            if ($response->failed()) {
+                Log::error('Stripe Payload Error', ['res' => $response->json()]);
+                return PaymentResponse::make(false, 'Serviço global inoperante (Stripe). Tente mais tarde.');
+            }
+
             $order->update(['status' => 'pending']);
+            $stripeSession = $response->json();
 
             return PaymentResponse::make(
                 success: true,
-                message: 'Stripe Checkout Session created!',
-                redirectUrl: 'https://checkout.stripe.com/c/pay/cs_test_mock_' . $order->uuid,
-                externalId: 'stripe_mock_000'
+                message: 'Redirecionando de modo protegido.',
+                redirectUrl: $stripeSession['url'] ?? null,
+                externalId: $stripeSession['id'] ?? null // id da sessao (cs_test...) o Webhook altera pra PI
             );
         } catch (\Exception $e) {
-            Log::error('Stripe Error: ' . $e->getMessage());
-            return PaymentResponse::make(false, 'Falha de integração global com Stripe.');
+            Log::error('Stripe Fallback: ' . $e->getMessage());
+            return PaymentResponse::make(false, 'Falha interna de comunicação HTTP.');
+        }
+    }
+
+    public function refundCharge(Order $order, ?float $amount = null): bool
+    {
+        // Se a transação for 'cs_test_' ou 'cs_live_', é Checkout Session.
+        // O webhook precisa ter substituído isso pelo Payment Intent (pi_...) pra podermos estornar direto no gateway.
+        if (empty($order->gateway_transaction_id) || str_starts_with($order->gateway_transaction_id, 'cs_')) {
+            Log::error('Stripe Refund Block: ID de sessão não resolvido pelo Webhook.');
+            return false;
+        }
+
+        $payload = ['payment_intent' => $order->gateway_transaction_id];
+        if (!is_null($amount)) {
+             $payload['amount'] = round($amount, 2) * 100; // centavos
+        }
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withToken($this->secretKey)
+                ->asForm()
+                ->timeout(15)
+                ->post('https://api.stripe.com/v1/refunds', $payload);
+
+            if ($response->failed()) {
+                Log::error('Stripe Refund Execution Error', ['b' => $response->json()]);
+                return false;
+            }
+            return true;
+        } catch (\Exception $e) {
+             Log::error('Stripe Refund Exc: ' . $e->getMessage());
+             return false;
         }
     }
 }

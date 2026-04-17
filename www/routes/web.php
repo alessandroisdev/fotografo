@@ -79,3 +79,7 @@ Route::middleware(['auth'])->prefix('client')->name('client.')->group(function (
 
 // External Webhooks
 Route::post('/webhooks/asaas', [\App\Http\Controllers\Webhooks\PaymentWebhookController::class, 'asaas']);
+Route::post('/webhooks/mercadopago', [\App\Http\Controllers\Webhooks\PaymentWebhookController::class, 'mercadopago']);
+Route::post('/webhooks/stripe', [\App\Http\Controllers\Webhooks\PaymentWebhookController::class, 'stripe']);
+Route::post('/webhooks/paypal', [\App\Http\Controllers\Webhooks\PaymentWebhookController::class, 'paypal']);
+Route::post('/webhooks/pagarme', [\App\Http\Controllers\Webhooks\PaymentWebhookController::class, 'pagarme']);

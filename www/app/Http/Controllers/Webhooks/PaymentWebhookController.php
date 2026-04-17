@@ -54,4 +54,193 @@ class PaymentWebhookController extends Controller
 
         return response()->json(['status' => 'success'], 200);
     }
+
+    /**
+     * Endpoint receiver for MercadoPago Events
+     */
+    public function mercadopago(Request $request)
+    {
+        Log::info('Webhook MP Recebido:', $request->all());
+
+        // MercadoPago Webhooks variam, mas notificam pagamentos via "type" -> "payment" ou ação originada na URL
+        if ($request->input('type') === 'payment' || isset($request['data']['id'])) {
+            $paymentId = $request->input('data.id') ?? $request->input('data')['id'] ?? $request->input('id');
+
+            // Chamada reversa de segurança: Pegamos os detalhes do Pagamento direto do Mercado Pago
+            $accessToken = config('settings.mercadopago_access_token', '');
+            $response = \Illuminate\Support\Facades\Http::withHeaders([
+                'Authorization' => 'Bearer ' . $accessToken
+            ])->timeout(10)->get("https://api.mercadopago.com/v1/payments/{$paymentId}");
+
+            if ($response->successful()) {
+                $payment = $response->json();
+                $orderUuid = $payment['external_reference'] ?? null;
+                $status = $payment['status'] ?? null;
+
+                if ($orderUuid) {
+                    $order = Order::where('uuid', $orderUuid)->first();
+                    if ($order) {
+                        // FUNDAMENTAL: O Checkout gravou a "Preference_id". O Webhook troca pelo "Payment_id" real numérico.
+                        // Sem isso, o admin nunca conseguirá apertar o botão [Estornar Fatura MP].
+                        $order->update(['gateway_transaction_id' => $paymentId]);
+
+                        if ($status === 'approved' && $order->status !== 'paid') {
+                            $order->update(['status' => 'paid', 'paid_at' => now()]);
+                            Log::info("Pedido {$orderUuid} Pago via MP!");
+                        } elseif (in_array($status, ['refunded', 'cancelled', 'rejected'])) {
+                            $order->update(['status' => 'cancelled']);
+                        }
+                    }
+                }
+            }
+        }
+
+        return response()->json(['status' => 'success'], 200);
+    }
+
+    /**
+     * Endpoint receiver for Stripe Events
+     */
+    public function stripe(Request $request)
+    {
+        Log::info('Webhook Stripe Recebido:', $request->all());
+
+        $type = $request->input('type');
+        $dataObj = $request->input('data.object');
+
+        // Quando o cliente termina de inserir o CVC e foi aprovado
+        if ($type === 'checkout.session.completed') {
+            $orderUuid = $dataObj['client_reference_id'] ?? null;
+            $paymentIntentId = $dataObj['payment_intent'] ?? null;
+
+            if ($orderUuid) {
+                $order = Order::where('uuid', $orderUuid)->first();
+                if ($order && $order->status !== 'paid') {
+                    // Atualizamos o gateway_transaction_id para o Intent! (cs_ pra pi_)
+                    $order->update([
+                        'status' => 'paid',
+                        'paid_at' => now(),
+                        'gateway_transaction_id' => $paymentIntentId 
+                    ]);
+                    Log::info("Pedido {$orderUuid} Pago via Stripe!");
+                }
+            }
+        } elseif ($type === 'charge.refunded') {
+            $paymentIntentId = $dataObj['payment_intent'] ?? null;
+            if ($paymentIntentId) {
+                 $order = Order::where('gateway_transaction_id', $paymentIntentId)->first();
+                 if ($order && $order->status !== 'cancelled') {
+                      $order->update(['status' => 'cancelled']);
+                      Log::info("Pedido {$order->uuid} Estornado e Cancelado pelo reflexo do Stripe.");
+                 }
+            }
+        }
+
+        return response()->json(['status' => 'success'], 200);
+    }
+
+    /**
+     * Endpoint receiver for PayPal Events
+     */
+    public function paypal(Request $request)
+    {
+        Log::info('Webhook PayPal Recebido:', $request->all());
+
+        $eventType = $request->input('event_type');
+        $resource = $request->input('resource');
+
+        if ($eventType === 'PAYMENT.CAPTURE.COMPLETED') {
+            // No PayPal v2, o ID do Pedido raiz fica escondido na estrutura e precisamos dele.
+            // Para encontrar o externalReference a gente escava o purchase_units original ou supplementary_data
+            
+            // Mas, normalmente o IPN (Webhook) de captação traz o custom_id equivalente
+            $orderUuid = $resource['custom_id'] ?? null;
+            
+            // Tentar extrair do link "up" se custom_id não vier (referência ao order)
+            if (!$orderUuid && isset($resource['supplementary_data']['related_ids']['order_id'])) {
+                 $paypalOrderId = $resource['supplementary_data']['related_ids']['order_id'];
+                 // Para este fluxo funcionar magicamente, a PayPal Order Original gerada na gateway foi gravada no gateway_transaction_id
+                 $order = Order::where('gateway_transaction_id', $paypalOrderId)->first();
+            } else {
+                 $order = Order::where('uuid', $orderUuid)->first();
+            }
+
+            if (isset($order) && $order && $order->status !== 'paid') {
+                 // Agora salvamos o CAPTURE ID real para podermos emitir o estorno depois pelo painel
+                 $captureId = $resource['id'];
+                 
+                 $order->update([
+                     'status' => 'paid',
+                     'paid_at' => now(),
+                     'gateway_transaction_id' => $captureId
+                 ]);
+                 Log::info("Pedido {$order->uuid} Pago via PayPal Capture!");
+            }
+        } elseif ($eventType === 'PAYMENT.CAPTURE.REFUNDED') {
+            // Em caso de estornos pela plataforma do Paypal
+            $captureId = $request->input('resource.links.0.href'); // Busca na url ou se for estorno direto usamos id capture
+            // Mais seguro buscar order pelo que já temos registrado (capture id)
+            $refundCaptureId = \Illuminate\Support\Str::afterLast($request->input('resource.links.1.href') ?? '', '/');
+            
+            $order = Order::where('gateway_transaction_id', $refundCaptureId)->first();
+            if (!$order) {
+                 // Fallback
+                 $order = Order::where('gateway_transaction_id', $resource['id'])->first();
+            }
+
+            if ($order && $order->status !== 'cancelled') {
+                 $order->update(['status' => 'cancelled']);
+                 Log::info("Pedido {$order->uuid} cancelado por Reflexo PayPal.");
+            }
+        }
+
+        return response()->json(['status' => 'success'], 200);
+    }
+
+    /**
+     * Endpoint receiver for Pagar.Me Events
+     */
+    public function pagarme(Request $request)
+    {
+        Log::info('Webhook PagarMe Recebido:', $request->all());
+
+        $type = $request->input('type');
+        $data = $request->input('data');
+
+        if (in_array($type, ['charge.paid', 'order.paid'])) {
+            // Em PagarMe V5, webhook `charge.paid` envia a object charge.
+            // Para encontrar a order nossa usamos $data['order']['code'] ou $data['code']
+            $orderUuid = $data['order']['code'] ?? $data['code'] ?? null;
+            $chargeId = $data['id'] ?? null; // ID verdadeiro de captura pra gente estornar depois
+
+            if ($orderUuid) {
+                 $order = Order::where('uuid', $orderUuid)->first();
+                 if ($order && $order->status !== 'paid') {
+                     $order->update([
+                         'status' => 'paid',
+                         'paid_at' => now(),
+                         'gateway_transaction_id' => $chargeId 
+                     ]);
+                     Log::info("Pedido {$order->uuid} Pago via PagarMe Core V5!");
+                 }
+            }
+        } elseif (in_array($type, ['charge.refunded', 'order.canceled'])) {
+            // Se foi estornado
+            $chargeId = $data['id'] ?? null;
+            if ($chargeId) {
+                // Procuramos pela charge gravada anteriormente
+                $order = Order::where('gateway_transaction_id', $chargeId)->first();
+                if (!$order && isset($data['code'])) {
+                     $order = Order::where('uuid', $data['code'])->first();
+                }
+
+                if ($order && $order->status !== 'cancelled') {
+                     $order->update(['status' => 'cancelled']);
+                     Log::info("Pedido {$order->uuid} cancelado por Reflexo Pagar.Me.");
+                }
+            }
+        }
+
+        return response()->json(['status' => 'success'], 200);
+    }
 }

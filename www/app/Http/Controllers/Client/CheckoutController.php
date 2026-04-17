@@ -99,6 +99,10 @@ class CheckoutController extends Controller
             return redirect()->route('client.dashboard')->with('error', $paymentResponse->message);
         }
 
+        if ($paymentResponse->externalId) {
+            $order->update(['gateway_transaction_id' => $paymentResponse->externalId]);
+        }
+
         if ($paymentResponse->redirectUrl) {
             // Redireciona para Plataforma Externa de Faturamento Mapeada (Asaas/Stripe/MercadoPago etc)
             return redirect($paymentResponse->redirectUrl);
